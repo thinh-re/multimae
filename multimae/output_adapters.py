@@ -57,27 +57,28 @@ class SpatialOutputAdapter(nn.Module):
     :param use_xattn: When set to True, attend to the tokens from the encoder through a cross-attention layer
     """
 
-    def __init__(self,
-                 num_channels: int,
-                 stride_level: int,
-                 patch_size_full: Union[int, Tuple[int, int]],
-                 dim_tokens_enc: Optional[int] = None,
-                 dim_tokens: int = 256,
-                 depth: int = 0,
-                 learnable_pos_emb: int = False,
-                 image_size: Union[int, Tuple[int]] = 224,
-                 mlp_ratio: int = 4.0,
-                 num_heads: int = 8,
-                 qkv_bias: bool = True,
-                 drop_rate: float = 0.0,
-                 attn_drop_rate: float = 0.0,
-                 drop_path_rate: float = 0.0,
-                 norm_layer: nn.Module = partial(nn.LayerNorm, eps=1e-6),
-                 use_task_queries: bool = True,
-                 task: Optional[str] = None,
-                 context_tasks: Optional[list] = None,
-                 use_xattn: bool = True
-                 ):
+    def __init__(
+        self,
+        num_channels: int,
+        stride_level: int,
+        patch_size_full: Union[int, Tuple[int, int]],
+        dim_tokens_enc: Optional[int] = None,
+        dim_tokens: int = 256,
+        depth: int = 0,
+        learnable_pos_emb: int = False,
+        image_size: Union[int, Tuple[int]] = 224,
+        mlp_ratio: int = 4.0,
+        num_heads: int = 8,
+        qkv_bias: bool = True,
+        drop_rate: float = 0.0,
+        attn_drop_rate: float = 0.0,
+        drop_path_rate: float = 0.0,
+        norm_layer: nn.Module = partial(nn.LayerNorm, eps=1e-6),
+        use_task_queries: bool = True,
+        task: Optional[str] = None,
+        context_tasks: Optional[list] = None,
+        use_xattn: bool = True,
+    ):
         super().__init__()
         self.num_channels = num_channels
         self.stride_level = stride_level
@@ -157,10 +158,12 @@ class SpatialOutputAdapter(nn.Module):
     def no_weight_decay(self):
         return {'pos_emb', 'mask_token', 'task_embeddings'}
 
-    def generate_context_embeddings(self, input_info,
-                                    bs: int,
-                                    size: Tuple[int, int],
-                                    device: Optional[torch.device] = None):
+    def generate_context_embeddings(
+        self, input_info,
+        bs: int,
+        size: Tuple[int, int],
+        device: Optional[torch.device] = None,
+    ):
         context_embeddings = []
         for task, info in input_info["tasks"].items():
             if self.task_embeddings is not None and task in self.task_embeddings:
@@ -233,12 +236,13 @@ class SpatialOutputAdapter(nn.Module):
 
         return queries, context_tokens
 
-    def forward(self,
-                encoder_tokens: torch.Tensor,
-                input_info: Dict,
-                ids_keep: torch.Tensor,
-                ids_restore: torch.Tensor,
-                ):
+    def forward(
+        self,
+        encoder_tokens: torch.Tensor,
+        input_info: Dict,
+        ids_keep: torch.Tensor,
+        ids_restore: torch.Tensor,
+    ):
         """
         Forward pass taking output tokens from encoder and optionally a subset of them corresponding
         to this output adapter's task (needs an additional mask describing position of these tokens in the queries).
@@ -376,20 +380,20 @@ class SegmenterMaskTransformerAdapter(nn.Module):
     """
 
     def __init__(
-            self,
-            num_classes,
-            depth: int = 2,
-            num_heads: int = 12,
-            embed_dim: int = 768,
-            mlp_ratio=4,
-            drop_path_rate=0.1,
-            drop_rate=0.0,
-            attn_drop_rate=0.0,
-            qkv_bias=True,
-            main_tasks: str = ('rgb',),
-            patch_size: int = 16,
-            norm_layer: nn.Module = partial(nn.LayerNorm, eps=1e-6),
-            **kwargs,
+        self,
+        num_classes,
+        depth: int = 2,
+        num_heads: int = 12,
+        embed_dim: int = 768,
+        mlp_ratio=4,
+        drop_path_rate=0.1,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        qkv_bias=True,
+        main_tasks: str = ('rgb',),
+        patch_size: int = 16,
+        norm_layer: nn.Module = partial(nn.LayerNorm, eps=1e-6),
+        **kwargs,
     ):
         super().__init__()
         self.main_tasks = main_tasks

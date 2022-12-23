@@ -524,9 +524,10 @@ def multivit_base(
 
 @register_model
 def multivit_large(
-        input_adapters: Dict[str, nn.Module],
-        output_adapters: Optional[Dict[str, nn.Module]],
-        **kwargs):
+    input_adapters: Dict[str, nn.Module],
+    output_adapters: Optional[Dict[str, nn.Module]],
+    **kwargs
+):
     model = MultiViT(
         input_adapters=input_adapters,
         output_adapters=output_adapters,
