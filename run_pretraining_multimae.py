@@ -276,8 +276,13 @@ def main(args: PretrainArgparser):
         if args.output_dir:
             if (epoch + 1) % args.save_ckpt_freq == 0 or epoch + 1 == args.epochs:
                 utils.save_model(
-                    args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                    loss_scaler=loss_scaler, loss_balancer=loss_balancer_without_ddp, epoch=epoch)
+                    args=args, model=model, 
+                    model_without_ddp=model_without_ddp, 
+                    optimizer=optimizer,
+                    loss_scaler=loss_scaler, 
+                    loss_balancer=loss_balancer_without_ddp, 
+                    epoch=epoch,
+                )
 
         log_stats = {**{k: v for k, v in train_stats.items()},
                      'epoch': epoch, 'n_parameters': n_parameters}
