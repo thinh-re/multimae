@@ -181,11 +181,6 @@ def main(args: PretrainArgparser):
     else:
         sampler_train = RandomSampler(dataset_train)
 
-    if global_rank == 0 and args.log_wandb:
-        log_writer = utils.WandbLogger(args)
-    else:
-        log_writer = None
-
     print(args)
 
     data_loader_train = DataLoader(
@@ -244,6 +239,11 @@ def main(args: PretrainArgparser):
         model_without_ddp=model_without_ddp, 
         optimizer=optimizer, loss_scaler=loss_scaler,
     )
+    
+    if global_rank == 0 and args.log_wandb:
+        log_writer = utils.WandbLogger(args)
+    else:
+        log_writer = None
 
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
@@ -334,6 +334,7 @@ def train_one_epoch(
     print_freq = 10
 
     for step, (x, _) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+        x: Dict[str, Tensor] = x
         # assign learning rate & weight decay for each step
         it = start_steps + step  # global training iteration
         if lr_schedule_values is not None or wd_schedule_values is not None:
@@ -367,8 +368,15 @@ def train_one_epoch(
                 num_encoded_tokens=num_encoded_tokens, 
                 alphas=alphas, 
                 sample_tasks_uniformly=sample_tasks_uniformly,
-                fp32_output_adapters=fp32_output_adapters
+                fp32_output_adapters=fp32_output_adapters,
             )
+            '''
+            {
+                'rgb': tensor of shape (b, c, h, w)
+                'depth': tensor of shape (b, 1, h, w)
+                'norm_rgb': tensor of shape (b, c, h, w)
+            }
+            '''
             preds: Dict[str, Tensor] = results[0]
             masks: Dict[str, Tensor] = results[1]
 

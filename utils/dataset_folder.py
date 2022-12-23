@@ -235,8 +235,13 @@ class MultiTaskDatasetFolder(VisionDataset):
         prefixes = {} if prefixes is None else prefixes
         prefixes.update({task: '' for task in tasks if task not in prefixes})
         
-        samples = {
-            task: make_dataset(os.path.join(self.root, f'{prefixes[task]}{task}'), class_to_idx, extensions, is_valid_file)
+        samples: Dict[str, List[Tuple[str, int]]] = {
+            task: make_dataset(
+                os.path.join(self.root, f'{prefixes[task]}{task}'), 
+                class_to_idx, 
+                extensions, 
+                is_valid_file,
+            )
             for task in self.tasks
         }
         
@@ -283,7 +288,7 @@ class MultiTaskDatasetFolder(VisionDataset):
         class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
         return classes, class_to_idx
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+    def __getitem__(self, index: int) -> Tuple[Dict, Any]:
         """
         Args:
             index (int): Index
