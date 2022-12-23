@@ -270,14 +270,16 @@ class MultiMAE(nn.Module):
 
         return input_info
 
-    def forward(self, 
-                x: Union[Dict[str, torch.Tensor], torch.Tensor], 
-                mask_inputs: bool = True,
-                task_masks: Dict[str, torch.Tensor] = None,
-                num_encoded_tokens: int = 128,
-                alphas: Union[float, List[float]] = 1.0,
-                sample_tasks_uniformly: bool = False,
-                fp32_output_adapters: List[str] = []):
+    def forward(
+        self, 
+        x: Union[Dict[str, torch.Tensor], torch.Tensor], 
+        mask_inputs: bool = True,
+        task_masks: Dict[str, torch.Tensor] = None,
+        num_encoded_tokens: int = 128,
+        alphas: Union[float, List[float]] = 1.0,
+        sample_tasks_uniformly: bool = False,
+        fp32_output_adapters: List[str] = [],
+    ):
         """
         Forward pass through input adapters, transformer encoder and output adapters.
         If specified, will randomly drop input tokens.

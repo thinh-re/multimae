@@ -28,11 +28,12 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from einops import rearrange
-from torch import nn
+from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 
 import utils
+from multimae import MultiMAE
 from multimae.criterion import (MaskedCrossEntropyLoss, MaskedL1Loss,
                                 MaskedMSELoss)
 from multimae.input_adapters import PatchedInputAdapter, SemSegInputAdapter
@@ -64,8 +65,9 @@ DOMAIN_CONF = {
     'semseg': {
         'num_classes': 133,
         'stride_level': 4,
-        'input_adapter': partial(SemSegInputAdapter, num_classes=COCO_SEMSEG_NUM_CLASSES,
-                                 dim_class_emb=64, interpolate_class_emb=False),
+        'input_adapter': partial(
+            SemSegInputAdapter, num_classes=COCO_SEMSEG_NUM_CLASSES,
+            dim_class_emb=64, interpolate_class_emb=False),
         'output_adapter': partial(SpatialOutputAdapter, num_channels=COCO_SEMSEG_NUM_CLASSES),
         'loss': partial(MaskedCrossEntropyLoss, label_smoothing=0.0),
     },
@@ -142,7 +144,7 @@ def main(args: PretrainArgparser):
     args.out_domains = args.out_domains.split('-')
     args.all_domains = list(set(args.in_domains) | set(args.out_domains))
 
-    model = get_model(args)
+    model: MultiMAE = get_model(args)
 
     if args.task_balancer == 'uncertainty':
         loss_balancer = UncertaintyWeightingStrategy(tasks=args.out_domains)
@@ -238,7 +240,10 @@ def main(args: PretrainArgparser):
     print("Max WD = %.7f, Min WD = %.7f" % (max(wd_schedule_values), min(wd_schedule_values)))
 
     utils.auto_load_model(
-        args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
+        args=args, model=model, 
+        model_without_ddp=model_without_ddp, 
+        optimizer=optimizer, loss_scaler=loss_scaler,
+    )
 
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
@@ -297,7 +302,7 @@ def main(args: PretrainArgparser):
 
 
 def train_one_epoch(
-    model: torch.nn.Module, 
+    model: DistributedDataParallel, 
     data_loader: Iterable, 
     tasks_loss_fn: Dict[str, torch.nn.Module],
     loss_balancer: torch.nn.Module, 
@@ -357,19 +362,21 @@ def train_one_epoch(
         }
 
         with torch.cuda.amp.autocast():
-            preds, masks = model(
+            results = model(
                 input_dict, 
                 num_encoded_tokens=num_encoded_tokens, 
                 alphas=alphas, 
                 sample_tasks_uniformly=sample_tasks_uniformly,
                 fp32_output_adapters=fp32_output_adapters
             )
+            preds: Dict[str, Tensor] = results[0]
+            masks: Dict[str, Tensor] = results[1]
 
             if extra_norm_pix_loss:
                 tasks_dict['norm_rgb'] = tasks_dict['rgb']
                 masks['norm_rgb'] = masks.get('rgb', None)
 
-            task_losses = {}
+            task_losses: Dict[str, Tensor] = {}
             for task in preds:
                 target = tasks_dict[task]
                     
@@ -378,7 +385,7 @@ def train_one_epoch(
                 else:
                     task_losses[task] = tasks_loss_fn[task](preds[task].float(), target, mask=masks.get(task, None))
 
-            weighted_task_losses = loss_balancer(task_losses)
+            weighted_task_losses: Dict[str, Tensor] = loss_balancer(task_losses)
             loss = sum(weighted_task_losses.values())
 
         loss_value = sum(task_losses.values()).item()
@@ -392,8 +399,9 @@ def train_one_epoch(
         optimizer.zero_grad()
         # this attribute is added by timm on one optimizer (adahessian)
         is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
-        grad_norm = loss_scaler(loss, optimizer, clip_grad=max_norm, skip_grad=max_skip_norm,
-                                parameters=model.parameters(), create_graph=is_second_order)
+        grad_norm = loss_scaler(
+            loss, optimizer, clip_grad=max_norm, skip_grad=max_skip_norm,
+            parameters=model.parameters(), create_graph=is_second_order)
         loss_scale_value = loss_scaler.state_dict()["scale"]
 
         torch.cuda.synchronize()
