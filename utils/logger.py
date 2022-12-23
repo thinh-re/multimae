@@ -174,7 +174,7 @@ class WandbLogger(object):
         wandb.login(key='c3fc6b778d58b02a1519dec88b08f0dae1fd5b3b')
         wandb.init(
             config=args,
-            entity=args.wandb_entity,
+            # entity=args.wandb_entity,
             project=args.wandb_project,
             group=getattr(args, 'wandb_group', None),
             name=getattr(args, 'wandb_run_name', None)

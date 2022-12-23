@@ -18,7 +18,6 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
-import torch
 from PIL import Image
 from torchvision.datasets.vision import VisionDataset
 
@@ -412,20 +411,21 @@ class MultiTaskImageFolder(MultiTaskDatasetFolder):
     """
 
     def __init__(
-            self,
-            root: str,
-            tasks: List[str],
-            transform: Optional[Callable] = None,
-            target_transform: Optional[Callable] = None,
-            loader: Callable[[str], Any] = pil_loader,
-            is_valid_file: Optional[Callable[[str], bool]] = None,
-            prefixes: Optional[Dict[str,str]] = None,
-            max_images: Optional[int] = None
+        self,
+        root: str,
+        tasks: List[str],
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        loader: Callable[[str], Any] = pil_loader,
+        is_valid_file: Optional[Callable[[str], bool]] = None,
+        prefixes: Optional[Dict[str,str]] = None,
+        max_images: Optional[int] = None
     ):
-        super(MultiTaskImageFolder, self).__init__(root, tasks, loader, IMG_EXTENSIONS if is_valid_file is None else None,
-                                          transform=transform,
-                                          target_transform=target_transform,
-                                          is_valid_file=is_valid_file,
-                                          prefixes=prefixes,
-                                          max_images=max_images)
+        super(MultiTaskImageFolder, self).__init__(
+            root, tasks, loader, IMG_EXTENSIONS if is_valid_file is None else None,
+            transform=transform,
+            target_transform=target_transform,
+            is_valid_file=is_valid_file,
+            prefixes=prefixes,
+            max_images=max_images)
         self.imgs = self.samples

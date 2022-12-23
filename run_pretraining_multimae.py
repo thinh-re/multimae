@@ -199,7 +199,7 @@ def main(args: PretrainArgparser):
     loss_balancer_without_ddp = loss_balancer
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    print(f"Model = %s" % str(model_without_ddp))
+    # print(f"Model = %s" % str(model_without_ddp))
     print(f"Number of params: {n_parameters / 1e6} M")
 
     total_batch_size = args.batch_size * utils.get_world_size()
