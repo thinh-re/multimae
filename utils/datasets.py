@@ -12,7 +12,6 @@
 # https://github.com/BUPT-PRIV/MAE-priv
 # --------------------------------------------------------
 
-import os
 import random
 
 import numpy as np
@@ -20,6 +19,7 @@ import torch
 import torchvision.transforms.functional as TF
 from torchvision import datasets, transforms
 
+from pretrain_argparser import PretrainArgparser
 from utils import create_transform
 
 from .data_constants import (IMAGE_TASKS, IMAGENET_DEFAULT_MEAN,
@@ -116,14 +116,15 @@ class DataAugmentationForMultiMAE(object):
         repr += ")"
         return repr
 
-def build_pretraining_dataset(args):
+def build_pretraining_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMAE(args)
     print("Data Aug = %s" % str(transform))
     return ImageFolder(args.data_path, transform=transform)
 
-def build_multimae_pretraining_dataset(args):
+def build_multimae_pretraining_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args)
-    return MultiTaskImageFolder(args.data_path, args.all_domains, transform=transform)
+    return MultiTaskImageFolder(
+        args.data_path, args.all_domains, transform=transform)
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)

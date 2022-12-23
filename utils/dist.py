@@ -13,9 +13,12 @@ import tempfile
 
 import torch
 import torch.distributed as dist
+from torch.distributed import barrier, init_process_group
+
+from pretrain_argparser import PretrainArgparser
 
 
-def setup_for_distributed(is_master):
+def setup_for_distributed(is_master: bool):
     """
     This function disables printing when not in master process
     """
@@ -58,8 +61,7 @@ def save_on_master(*args, **kwargs):
     if is_main_process():
         torch.save(*args, **kwargs)
 
-
-def init_distributed_mode(args):
+def init_distributed_mode(args: PretrainArgparser):
     if args.dist_on_itp:
         args.rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
         args.world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
@@ -87,9 +89,10 @@ def init_distributed_mode(args):
     args.dist_backend = 'nccl'
     print('| distributed init (rank {}): {}, gpu {}'.format(
         args.rank, args.dist_url, args.gpu), flush=True)
-    torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                         world_size=args.world_size, rank=args.rank)
-    torch.distributed.barrier()
+    init_process_group(
+        backend=args.dist_backend, init_method=args.dist_url,
+        world_size=args.world_size, rank=args.rank)
+    barrier()
     setup_for_distributed(args.rank == 0)
 
 # # From MMCV

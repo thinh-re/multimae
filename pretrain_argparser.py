@@ -86,6 +86,13 @@ class PretrainArgparser(Tap):
     dist_on_itp: Optional[bool] = False
     dist_url: Optional[str] = 'env://'
     
+    # Additional parameters (Do not override this since it will be calculated after config is initialized)
+    all_domains: Optional[List[str]] = []
+    rank: Optional[int] = -1
+    gpu: Optional[int] = -1
+    distributed: Optional[bool] = False
+    dist_backend: Optional[str] = 'nccl'
+    
 def get_args() -> PretrainArgparser:
     config_parser = parser = PretrainArgparser(description='Training Config', add_help=False)
     parsed_known_args = config_parser.parse_known_args()

@@ -27,7 +27,6 @@ from typing import Dict, Iterable, List
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import yaml
 from einops import rearrange
 from pretrain_argparser import get_args, PretrainArgparser
 
@@ -69,7 +68,7 @@ DOMAIN_CONF = {
     },
 }
 
-def get_model(args):
+def get_model(args: PretrainArgparser):
     """Creates and returns model from arguments
     """
     print(f"Creating model: {args.model} for inputs {args.in_domains} and outputs {args.out_domains}")
@@ -148,15 +147,18 @@ def main(args: PretrainArgparser):
         loss_balancer = NoWeightingStrategy()
 
     tasks_loss_fn = {
-        domain: DOMAIN_CONF[domain]['loss'](patch_size=args.patch_size, stride=DOMAIN_CONF[domain]['stride_level'])
+        domain: DOMAIN_CONF[domain]['loss'](
+            patch_size=args.patch_size, 
+            stride=DOMAIN_CONF[domain]['stride_level'])
         for domain in args.out_domains
     }
 
     # Add normalized pixel loss if specified
     if args.extra_norm_pix_loss:
-        tasks_loss_fn['norm_rgb'] = DOMAIN_CONF['rgb']['loss'](patch_size=args.patch_size,
-                                                               stride=DOMAIN_CONF['rgb']['stride_level'],
-                                                               norm_pix=True)
+        tasks_loss_fn['norm_rgb'] = DOMAIN_CONF['rgb']['loss'](
+            patch_size=args.patch_size,
+            stride=DOMAIN_CONF['rgb']['stride_level'],
+            norm_pix=True)
 
     # Get dataset
     dataset_train = build_multimae_pretraining_dataset(args)
