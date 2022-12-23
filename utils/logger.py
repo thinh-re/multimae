@@ -9,6 +9,7 @@
 import datetime
 import time
 from collections import defaultdict, deque
+from typing import Any, Dict, Optional
 
 import torch
 import torch.distributed as dist
@@ -17,6 +18,8 @@ try:
     import wandb
 except:
     pass
+
+from pretrain_argparser import PretrainArgparser
 
 from .dist import is_dist_avail_and_initialized
 
@@ -166,9 +169,8 @@ class MetricLogger(object):
         print('{} Total time: {} ({:.4f} s / it)'.format(
             header, total_time_str, total_time / len(iterable)))
 
-
 class WandbLogger(object):
-    def __init__(self, args):
+    def __init__(self, args: PretrainArgparser):
         wandb.init(
             config=args,
             entity=args.wandb_entity,
@@ -177,13 +179,13 @@ class WandbLogger(object):
             name=getattr(args, 'wandb_run_name', None)
         )
 
-    def set_step(self, step=None):
+    def set_step(self, step: Optional[int] = None):
         if step is not None:
             self.step = step
         else:
             self.step += 1
 
-    def update(self, metrics):
+    def update(self, metrics: Dict[str, Any]):
         log_dict = dict()
         for k, v in metrics.items():
             if v is None:

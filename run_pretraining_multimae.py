@@ -22,19 +22,21 @@ import time
 import warnings
 from functools import partial
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from einops import rearrange
-from pretrain_argparser import get_args, PretrainArgparser
+from torch import nn
+from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 
 import utils
 from multimae.criterion import (MaskedCrossEntropyLoss, MaskedL1Loss,
                                 MaskedMSELoss)
 from multimae.input_adapters import PatchedInputAdapter, SemSegInputAdapter
 from multimae.output_adapters import SpatialOutputAdapter
+from pretrain_argparser import PretrainArgparser, get_args
 from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import create_model
 from utils.data_constants import COCO_SEMSEG_NUM_CLASSES
@@ -68,7 +70,7 @@ DOMAIN_CONF = {
     },
 }
 
-def get_model(args: PretrainArgparser):
+def get_model(args: PretrainArgparser) -> nn.Module:
     """Creates and returns model from arguments
     """
     print(f"Creating model: {args.model} for inputs {args.in_domains} and outputs {args.out_domains}")
@@ -169,12 +171,12 @@ def main(args: PretrainArgparser):
         sampler_rank = global_rank
         num_training_steps_per_epoch = len(dataset_train) // args.batch_size // num_tasks
 
-        sampler_train = torch.utils.data.DistributedSampler(
+        sampler_train = DistributedSampler(
             dataset_train, num_replicas=num_tasks, rank=sampler_rank, shuffle=True, drop_last=True,
         )
         print("Sampler_train = %s" % str(sampler_train))
     else:
-        sampler_train = torch.utils.data.RandomSampler(dataset_train)
+        sampler_train = RandomSampler(dataset_train)
 
     if global_rank == 0 and args.log_wandb:
         log_writer = utils.WandbLogger(args)
@@ -183,7 +185,7 @@ def main(args: PretrainArgparser):
 
     print(args)
 
-    data_loader_train = torch.utils.data.DataLoader(
+    data_loader_train = DataLoader(
         dataset_train, sampler=sampler_train,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
@@ -264,7 +266,7 @@ def main(args: PretrainArgparser):
             sample_tasks_uniformly=args.sample_tasks_uniformly,
             standardize_depth=args.standardize_depth,
             extra_norm_pix_loss=args.extra_norm_pix_loss,
-            fp32_output_adapters=args.fp32_output_adapters.split('-')
+            fp32_output_adapters=args.fp32_output_adapters.split('-'),
         )
         if log_writer is not None:
             log_writer.update({**{k: v for k, v in train_stats.items()}, 'epoch': epoch})
@@ -289,8 +291,8 @@ def main(args: PretrainArgparser):
 def train_one_epoch(
     model: torch.nn.Module, data_loader: Iterable, tasks_loss_fn: Dict[str, torch.nn.Module],
     loss_balancer: torch.nn.Module, optimizer: torch.optim.Optimizer,
-    device: torch.device, epoch: int, loss_scaler, max_norm: float = None, max_skip_norm: float = None,
-    log_writer=None, lr_scheduler=None, start_steps=None, lr_schedule_values=None, wd_schedule_values=None,
+    device: torch.device, epoch: int, loss_scaler: NativeScaler, max_norm: Optional[float] = None, max_skip_norm: Optional[float] = None,
+    log_writer: Optional[utils.WandbLogger]=None, lr_scheduler=None, start_steps=None, lr_schedule_values=None, wd_schedule_values=None,
     num_encoded_tokens: int = 196, in_domains: List[str] = [] , loss_on_unmasked: bool = True,
     alphas: float = 1.0, sample_tasks_uniformly: bool = False, standardize_depth: bool = True,
     extra_norm_pix_loss: bool = False, fp32_output_adapters: List[str] = []
