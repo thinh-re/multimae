@@ -9,14 +9,17 @@
 Hacked together by / Copyright 2020 Ross Wightman
 """
 import fnmatch
+from typing import Union
 
 import torch
 from torchvision.ops.misc import FrozenBatchNorm2d
 
 from .model_ema import ModelEma
 
+from torch.nn.parallel import DistributedDataParallel
+from torch.nn import Module
 
-def unwrap_model(model):
+def unwrap_model(model: Union[ModelEma, DistributedDataParallel, Module]) -> Module:
     if isinstance(model, ModelEma):
         return unwrap_model(model.ema)
     else:

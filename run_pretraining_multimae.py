@@ -29,6 +29,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from einops import rearrange
 from torch import nn
+from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 
 import utils
@@ -211,12 +212,14 @@ def main(args: PretrainArgparser):
     print("Number of training examples per epoch = %d" % (total_batch_size * num_training_steps_per_epoch))
 
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=args.find_unused_params)
-        # model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model = DistributedDataParallel(
+            model, device_ids=[args.gpu], 
+            find_unused_parameters=args.find_unused_params,
+        )
         model_without_ddp = model.module
 
     if args.distributed and args.task_balancer != 'none':
-        loss_balancer = torch.nn.parallel.DistributedDataParallel(loss_balancer, device_ids=[args.gpu])
+        loss_balancer = DistributedDataParallel(loss_balancer, device_ids=[args.gpu])
         loss_balancer_without_ddp = loss_balancer.module
 
     optimizer = create_optimizer(
@@ -289,13 +292,29 @@ def main(args: PretrainArgparser):
 
 
 def train_one_epoch(
-    model: torch.nn.Module, data_loader: Iterable, tasks_loss_fn: Dict[str, torch.nn.Module],
-    loss_balancer: torch.nn.Module, optimizer: torch.optim.Optimizer,
-    device: torch.device, epoch: int, loss_scaler: NativeScaler, max_norm: Optional[float] = None, max_skip_norm: Optional[float] = None,
-    log_writer: Optional[utils.WandbLogger]=None, lr_scheduler=None, start_steps=None, lr_schedule_values=None, wd_schedule_values=None,
-    num_encoded_tokens: int = 196, in_domains: List[str] = [] , loss_on_unmasked: bool = True,
-    alphas: float = 1.0, sample_tasks_uniformly: bool = False, standardize_depth: bool = True,
-    extra_norm_pix_loss: bool = False, fp32_output_adapters: List[str] = []
+    model: torch.nn.Module, 
+    data_loader: Iterable, 
+    tasks_loss_fn: Dict[str, torch.nn.Module],
+    loss_balancer: torch.nn.Module, 
+    optimizer: torch.optim.Optimizer,
+    device: torch.device, 
+    epoch: int, 
+    loss_scaler: NativeScaler, 
+    max_norm: Optional[float] = None, 
+    max_skip_norm: Optional[float] = None,
+    log_writer: Optional[utils.WandbLogger]=None, 
+    lr_scheduler=None, 
+    start_steps: Optional[int] = None, 
+    lr_schedule_values: Optional[np.ndarray]=None, 
+    wd_schedule_values: Optional[np.ndarray]=None,
+    num_encoded_tokens: int = 196, 
+    in_domains: List[str] = [], 
+    loss_on_unmasked: bool = True,
+    alphas: float = 1.0, 
+    sample_tasks_uniformly: bool = False, 
+    standardize_depth: bool = True,
+    extra_norm_pix_loss: bool = False, 
+    fp32_output_adapters: List[str] = [],
 ):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")

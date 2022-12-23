@@ -93,6 +93,7 @@ class PretrainArgparser(Tap):
     distributed: Optional[bool] = False
     dist_backend: Optional[str] = 'nccl'
     lr: Optional[float] = 1e3
+    no_lr_scale_list: Optional[List[float]] = []
     
 def get_args() -> PretrainArgparser:
     config_parser = parser = PretrainArgparser(description='Training Config', add_help=False)

@@ -7,6 +7,7 @@
 # https://github.com/BUPT-PRIV/MAE-priv
 # --------------------------------------------------------
 import json
+from typing import Dict
 
 import torch
 from torch import optim as optim
@@ -47,8 +48,11 @@ class LayerDecayValueAssigner(object):
 
 
 def get_parameter_groups(
-        model, weight_decay=1e-5, skip_list=(), get_num_layer=None, get_layer_scale=None, 
-        decoder_decay=None, decoder_list=(), no_lr_scale_list=[]):
+    model, weight_decay=1e-5, skip_list=(), 
+    get_num_layer=None, get_layer_scale=None, 
+    decoder_decay=None, decoder_list=(), 
+    no_lr_scale_list=[],
+):
     parameter_group_names = {}
     parameter_group_vars = {}
 
@@ -100,8 +104,17 @@ def get_parameter_groups(
     print("Param groups = %s" % json.dumps(parameter_group_names, indent=2))
     return list(parameter_group_vars.values())
 
+from pretrain_argparser import PretrainArgparser
+from torch.nn import Module
 
-def create_optimizer(args, model, get_num_layer=None, get_layer_scale=None, filter_bias_and_bn=True, skip_list=None):
+def create_optimizer(
+    args: PretrainArgparser, 
+    model: Dict[str, Module], 
+    get_num_layer=None, 
+    get_layer_scale=None, 
+    filter_bias_and_bn=True, 
+    skip_list=None,
+):
     '''
     Model can either be a single nn.Module, or a dictionary with {'model': model, 'balancer': balancer}.
     '''
@@ -116,7 +129,7 @@ def create_optimizer(args, model, get_num_layer=None, get_layer_scale=None, filt
     except:
         no_lr_scale_list = []
 
-    def get_parameters(m):
+    def get_parameters(m: Module):
         if weight_decay and filter_bias_and_bn:
             skip = {}
             if skip_list is not None:
@@ -133,7 +146,7 @@ def create_optimizer(args, model, get_num_layer=None, get_layer_scale=None, filt
             wd = weight_decay
         return parameters, wd
     
-    if isinstance(model, torch.nn.Module):
+    if isinstance(model, Module):
         parameters, weight_decay = get_parameters(model)
     elif isinstance(model, dict):
         parameters = [
@@ -174,6 +187,5 @@ def create_optimizer(args, model, get_num_layer=None, get_layer_scale=None, filt
         optimizer = optim.AdamW(parameters, **opt_args)
     else:
         assert False and "Invalid optimizer"
-        raise ValueError
 
     return optimizer
