@@ -155,11 +155,6 @@ def create_optimizer(
                         if p.requires_grad],
                 "lr_scale": 1.,
             },
-            # {
-            #     "params": [p for n, p in model['balancer'].named_parameters()
-            #             if p.requires_grad],
-            #     "lr_scale": args.balancer_lr_scale,
-            # },
         ]
 
     if 'fused' in opt_lower:

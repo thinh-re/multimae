@@ -177,7 +177,8 @@ class WandbLogger(object):
             # entity=args.wandb_entity,
             project=args.wandb_project,
             group=getattr(args, 'wandb_group', None),
-            name=getattr(args, 'wandb_run_name', None)
+            name=args.wandb_run_name,
+            id=args.wandb_run_name,
         )
 
     def set_step(self, step: Optional[int] = None):
