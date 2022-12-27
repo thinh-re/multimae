@@ -153,7 +153,7 @@ def log_inference(
             wandb.Image(pred_depth),
             wandb.Image(depth),
         ])
-    log_writer({
+    log_writer.update({
         f'inference/{epoch}': wandb.Table(
             data=data,
             columns=['masked_rgb', 'pred_rgb', 'rgb', 'masked_depth', 'pred_depth', 'depth'],
@@ -174,7 +174,7 @@ def inference(
     num_depth = int(196 * num_depth / 100.0)
 
     # To GPU
-    input_dict = {k: v.to(device) for k,v in input_dict.items()}
+    input_dict = {k: v.unsqueeze(0).to(device) for k,v in input_dict.items()}
 
     if not manual_mode:
         # Randomly sample masks

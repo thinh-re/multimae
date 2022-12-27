@@ -246,12 +246,7 @@ def main(args: PretrainArgparser):
         log_writer.set_step(0)
     else:
         log_writer = None
-        
-    log_inference(
-        model, seed, dataset_dev, 
-        log_writer, epoch=0, num_samples=2,
-    )
-        
+            
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -292,6 +287,11 @@ def main(args: PretrainArgparser):
                     optimizer=optimizer,
                     loss_scaler=loss_scaler, 
                     epoch=epoch,
+                )
+                
+                log_inference(
+                    model, seed, dataset_dev, 
+                    log_writer, epoch='latest', num_samples=10,
                 )
 
         log_stats = {**{k: v for k, v in train_stats.items()},
