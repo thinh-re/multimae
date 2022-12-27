@@ -48,8 +48,6 @@ class PretrainArgparser(Tap):
     blr: Optional[float] = 1e-4
     warmup_lr: Optional[float] = 1e-6
     min_lr: Optional[float] = 0.
-    task_balancer: Optional[str] = 'none'
-    balancer_lr_scale: Optional[float] = 1.0
     warmup_epochs: Optional[int] = 40
     warmup_steps: Optional[int] = -1
     fp32_output_adapters: Optional[str] = ''

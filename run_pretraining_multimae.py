@@ -175,11 +175,13 @@ def main(args: PretrainArgparser):
         num_training_steps_per_epoch = len(dataset_train) // args.batch_size // num_tasks
 
         sampler_train = DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=sampler_rank, shuffle=True, drop_last=True,
+            dataset_train, num_replicas=num_tasks, 
+            rank=sampler_rank, shuffle=True, drop_last=True,
         )
-        sampler_dev = DistributedSampler(
-            dataset_dev, num_replicas=num_tasks, rank=sampler_rank, shuffle=False, drop_last=False,
-        )
+        # sampler_dev = DistributedSampler(
+        #     dataset_dev, num_replicas=num_tasks, 
+        #     rank=sampler_rank, shuffle=False, drop_last=False,
+        # )
         print("Sampler_train = %s" % str(sampler_train))
     else:
         sampler_train = RandomSampler(dataset_train)
@@ -193,13 +195,13 @@ def main(args: PretrainArgparser):
         pin_memory=args.pin_mem,
         drop_last=True,
     )
-    data_loader_dev = DataLoader(
-        dataset_dev, sampler=sampler_dev,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False,
-    )
+    # data_loader_dev = DataLoader(
+    #     dataset_dev, sampler=sampler_dev,
+    #     batch_size=args.batch_size,
+    #     num_workers=args.num_workers,
+    #     pin_memory=args.pin_mem,
+    #     drop_last=False,
+    # )
 
     model.to(device)
     model_without_ddp = model
@@ -226,13 +228,17 @@ def main(args: PretrainArgparser):
 
     print("Use step level LR & WD scheduler!")
     lr_schedule_values = utils.cosine_scheduler(
-        args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
-        warmup_epochs=args.warmup_epochs, warmup_steps=args.warmup_steps,
+        args.lr, args.min_lr, args.epochs, 
+        num_training_steps_per_epoch,
+        warmup_epochs=args.warmup_epochs, 
+        warmup_steps=args.warmup_steps,
     )
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay
     wd_schedule_values = utils.cosine_scheduler(
-        args.weight_decay, args.weight_decay_end, args.epochs, num_training_steps_per_epoch)
+        args.weight_decay, args.weight_decay_end, 
+        args.epochs, num_training_steps_per_epoch,
+    )
     print("Max WD = %.7f, Min WD = %.7f" % (max(wd_schedule_values), min(wd_schedule_values)))
 
     utils.auto_load_model(

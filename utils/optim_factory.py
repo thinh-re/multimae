@@ -116,7 +116,7 @@ def create_optimizer(
     skip_list=None,
 ):
     '''
-    Model can either be a single nn.Module, or a dictionary with {'model': model, 'balancer': balancer}.
+    Model can either be a single nn.Module, or a dictionary with {'model': model}.
     '''
     opt_lower = args.opt.lower()
     weight_decay = args.weight_decay
