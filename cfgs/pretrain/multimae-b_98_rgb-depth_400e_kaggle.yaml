@@ -31,7 +31,7 @@ data_path: '/kaggle/input/multimae-v1' # Change me
 
 # Wandb logging
 log_wandb: True # Set to True to log to Weights & Biases
-wandb_project: 'v1.0.0'
+wandb_project: 'v1.0.1'
 wandb_entity: null # Change if needed
 wandb_run_name: multimae-b_98_rgb-depth_400e
 output_dir: './output/pretrain/multimae-b_98_rgb-depth_400e' # Change directory if needed
