@@ -15,9 +15,9 @@
 # --------------------------------------------------------
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
+from torch import Tensor, nn
 
 
 class MaskedCrossEntropyLoss(nn.Module):
@@ -138,7 +138,7 @@ class MaskedL1Loss(nn.Module):
         imgs = rearrange(x, "b (nh nw) (p1 p2 c) -> b c (nh p1) (nw p2)", nh=nh, nw=nw, p1=p, p2=p)
         return imgs
 
-    def forward(self, input, target, mask=None):
+    def forward(self, input: Tensor, target: Tensor, mask: Tensor = None):
 
         H, W = input.shape[-2:]
         nh, nw = H // self.scale_factor, W // self.scale_factor

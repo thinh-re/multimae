@@ -27,10 +27,12 @@ from typing import Dict, Iterable, List, Optional
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
+import torch.distributed as dist
 from einops import rearrange
 from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
+from tqdm import tqdm
 
 import utils
 from multimae import MultiMAE
@@ -42,10 +44,13 @@ from pretrain_argparser import PretrainArgparser, get_args
 from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import create_model
 from utils.data_constants import COCO_SEMSEG_NUM_CLASSES
-from utils.datasets import build_multimae_pretraining_dataset
+from utils.datasets import (build_multimae_pretraining_dev_dataset,
+                            build_multimae_pretraining_train_dataset)
 from utils.optim_factory import create_optimizer
 from utils.task_balancing import (NoWeightingStrategy,
                                   UncertaintyWeightingStrategy)
+
+CPU_DEVICE = torch.device('cpu')
 
 DOMAIN_CONF = {
     'rgb': {
@@ -146,11 +151,6 @@ def main(args: PretrainArgparser):
 
     model: MultiMAE = get_model(args)
 
-    if args.task_balancer == 'uncertainty':
-        loss_balancer = UncertaintyWeightingStrategy(tasks=args.out_domains)
-    else:
-        loss_balancer = NoWeightingStrategy()
-
     tasks_loss_fn = {
         domain: DOMAIN_CONF[domain]['loss'](
             patch_size=args.patch_size, 
@@ -166,7 +166,8 @@ def main(args: PretrainArgparser):
             norm_pix=True)
 
     # Get dataset
-    dataset_train = build_multimae_pretraining_dataset(args)
+    dataset_train = build_multimae_pretraining_train_dataset(args)
+    dataset_dev = build_multimae_pretraining_dev_dataset(args)
 
     if True:  # args.distributed:
         num_tasks = utils.get_world_size()
@@ -176,6 +177,9 @@ def main(args: PretrainArgparser):
 
         sampler_train = DistributedSampler(
             dataset_train, num_replicas=num_tasks, rank=sampler_rank, shuffle=True, drop_last=True,
+        )
+        sampler_dev = DistributedSampler(
+            dataset_dev, num_replicas=num_tasks, rank=sampler_rank, shuffle=False, drop_last=False,
         )
         print("Sampler_train = %s" % str(sampler_train))
     else:
@@ -190,11 +194,16 @@ def main(args: PretrainArgparser):
         pin_memory=args.pin_mem,
         drop_last=True,
     )
+    data_loader_dev = DataLoader(
+        dataset_dev, sampler=sampler_dev,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        drop_last=False,
+    )
 
     model.to(device)
-    loss_balancer.to(device)
     model_without_ddp = model
-    loss_balancer_without_ddp = loss_balancer
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     # print(f"Model = %s" % str(model_without_ddp))
@@ -212,12 +221,8 @@ def main(args: PretrainArgparser):
         model = DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
-    if args.distributed and args.task_balancer != 'none':
-        loss_balancer = DistributedDataParallel(loss_balancer, device_ids=[args.gpu])
-        loss_balancer_without_ddp = loss_balancer.module
-
     optimizer = create_optimizer(
-        args, {'model': model_without_ddp, 'balancer': loss_balancer_without_ddp})
+        args, {'model': model_without_ddp})
     loss_scaler = NativeScaler()
 
     print("Use step level LR & WD scheduler!")
@@ -239,8 +244,28 @@ def main(args: PretrainArgparser):
     
     if global_rank == 0 and args.log_wandb:
         log_writer = utils.WandbLogger(args)
+        log_writer.set_step(0)
     else:
         log_writer = None
+        
+    # eval(
+    #     dataset_type = 'dev',
+    #     args = args,
+    #     model = model, 
+    #     data_loader = data_loader_dev, 
+    #     tasks_loss_fn = tasks_loss_fn,
+    #     device = device, 
+    #     epoch=0,
+    #     log_writer = log_writer,
+    #     num_encoded_tokens=args.num_encoded_tokens,
+    #     in_domains=args.in_domains,
+    #     loss_on_unmasked=args.loss_on_unmasked,
+    #     alphas=args.alphas,
+    #     sample_tasks_uniformly=args.sample_tasks_uniformly,
+    #     standardize_depth=args.standardize_depth,
+    #     extra_norm_pix_loss=args.extra_norm_pix_loss,
+    #     fp32_output_adapters=args.fp32_output_adapters.split('-'),
+    # )
 
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
@@ -253,7 +278,6 @@ def main(args: PretrainArgparser):
             model=model,
             data_loader=data_loader_train,
             tasks_loss_fn=tasks_loss_fn,
-            loss_balancer=loss_balancer,
             optimizer=optimizer,
             device=device,
             epoch=epoch,
@@ -282,7 +306,6 @@ def main(args: PretrainArgparser):
                     model_without_ddp=model_without_ddp, 
                     optimizer=optimizer,
                     loss_scaler=loss_scaler, 
-                    loss_balancer=loss_balancer_without_ddp, 
                     epoch=epoch,
                 )
 
@@ -292,6 +315,26 @@ def main(args: PretrainArgparser):
         if args.output_dir and utils.is_main_process():
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
+                
+        # if epoch % 5 == 0:
+        #     eval(
+        #         dataset_type = 'dev',
+        #         args = args,
+        #         model = model, 
+        #         data_loader = data_loader_dev, 
+        #         tasks_loss_fn = tasks_loss_fn,
+        #         device = device, 
+        #         epoch = epoch,
+        #         log_writer = log_writer,
+        #         num_encoded_tokens=args.num_encoded_tokens,
+        #         in_domains=args.in_domains,
+        #         loss_on_unmasked=args.loss_on_unmasked,
+        #         alphas=args.alphas,
+        #         sample_tasks_uniformly=args.sample_tasks_uniformly,
+        #         standardize_depth=args.standardize_depth,
+        #         extra_norm_pix_loss=args.extra_norm_pix_loss,
+        #         fp32_output_adapters=args.fp32_output_adapters.split('-'),
+        #     )
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -302,7 +345,6 @@ def train_one_epoch(
     model: DistributedDataParallel, 
     data_loader: Iterable, 
     tasks_loss_fn: Dict[str, torch.nn.Module],
-    loss_balancer: torch.nn.Module, 
     optimizer: torch.optim.Optimizer,
     device: torch.device, 
     epoch: int, 
@@ -310,7 +352,6 @@ def train_one_epoch(
     max_norm: Optional[float] = None, 
     max_skip_norm: Optional[float] = None,
     log_writer: Optional[utils.WandbLogger]=None, 
-    lr_scheduler=None, 
     start_steps: Optional[int] = None, 
     lr_schedule_values: Optional[np.ndarray]=None, 
     wd_schedule_values: Optional[np.ndarray]=None,
@@ -390,12 +431,10 @@ def train_one_epoch(
                 else:
                     task_losses[task] = tasks_loss_fn[task](preds[task].float(), target, mask=masks.get(task, None))
 
-            weighted_task_losses: Dict[str, Tensor] = loss_balancer(task_losses)
-            loss = sum(weighted_task_losses.values())
+            loss = sum(task_losses.values())
 
         loss_value = sum(task_losses.values()).item()
         task_loss_values = {f'{task}_loss': l.item() for task, l in task_losses.items()}
-        weighted_task_loss_values = {f'{task}_loss_weighted': l.item() for task, l in weighted_task_losses.items()}
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -439,15 +478,104 @@ def train_one_epoch(
                 }
             )
             log_writer.update(task_loss_values)
-            log_writer.update(weighted_task_loss_values)
             log_writer.set_step()
 
-        if lr_scheduler is not None:
-            lr_scheduler.step_update(start_steps + step)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
     return {'[Epoch] ' + k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+def eval(
+    dataset_type: str, # 'dev', 'test'
+    args: PretrainArgparser,
+    model: DistributedDataParallel, 
+    data_loader: DataLoader, 
+    tasks_loss_fn: Dict[str, torch.nn.Module],
+    device: torch.device,
+    epoch: int,
+    log_writer: Optional[utils.WandbLogger]=None,
+    num_encoded_tokens: int = 196, 
+    in_domains: List[str] = [], 
+    loss_on_unmasked: bool = True,
+    alphas: float = 1.0, 
+    sample_tasks_uniformly: bool = False, 
+    standardize_depth: bool = True,
+    extra_norm_pix_loss: bool = False, 
+    fp32_output_adapters: List[str] = [],
+):
+    model.eval()
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = 'Epoch: [{}]'.format(epoch)
+    print_freq = 10
+    total_loss: float = 0.0
+    for step, (x, _) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+        x: Dict[str, Tensor] = x
+
+        tasks_dict = {
+            task: tensor.to(device, non_blocking=True)
+            for task, tensor in x.items()
+        }
+        
+        batch_size = 0
+        for tensor in x.values():
+            batch_size = tensor.shape[0]
+            break
+
+        # Truncated depth standardization
+        if standardize_depth and 'depth' in tasks_dict:
+            # Flatten depth and remove bottom and top 10% of values
+            trunc_depth: Tensor = torch.sort(rearrange(tasks_dict['depth'], 'b c h w -> b (c h w)'), dim=1)[0]
+            trunc_depth = trunc_depth[:,int(0.1 * trunc_depth.shape[1]): int(0.9 * trunc_depth.shape[1])]
+            tasks_dict['depth'] = (tasks_dict['depth'] - trunc_depth.mean(dim=1)[:,None,None,None]) \
+                / torch.sqrt(trunc_depth.var(dim=1)[:,None,None,None] + 1e-6)
+
+        input_dict = {
+            task: tensor
+            for task, tensor in tasks_dict.items()
+            if task in in_domains
+        }
+
+        with torch.cuda.amp.autocast():
+            results = model(
+                input_dict, 
+                num_encoded_tokens=num_encoded_tokens, 
+                alphas=alphas, 
+                sample_tasks_uniformly=sample_tasks_uniformly,
+                fp32_output_adapters=fp32_output_adapters,
+            )
+            '''
+            {
+                'rgb': tensor of shape (b, c, h, w)
+                'depth': tensor of shape (b, 1, h, w)
+                'norm_rgb': tensor of shape (b, c, h, w)
+            }
+            '''
+            preds: Dict[str, Tensor] = results[0]
+            masks: Dict[str, Tensor] = results[1]
+
+            if extra_norm_pix_loss:
+                tasks_dict['norm_rgb'] = tasks_dict['rgb']
+                masks['norm_rgb'] = masks.get('rgb', None)
+
+            task_losses: Dict[str, Tensor] = {}
+            for task in preds:
+                target = tasks_dict[task]
+                    
+                if loss_on_unmasked:
+                    task_losses[task] = tasks_loss_fn[task](preds[task].float(), target)
+                else:
+                    task_losses[task] = tasks_loss_fn[task](
+                        preds[task].float(), target, mask=masks.get(task, None))
+            loss_value = sum(task_losses.values())
+            
+            if args.distributed:
+                dist.all_reduce(loss_value)
+            
+            total_loss += loss_value.to(CPU_DEVICE).item() * batch_size
+        
+    total_loss = total_loss / len(data_loader.dataset)
+    if log_writer is not None:
+        log_writer.update({f'{dataset_type}_loss': total_loss})
 
 
 if __name__ == '__main__':

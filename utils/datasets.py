@@ -13,10 +13,12 @@
 # --------------------------------------------------------
 
 import random
+from typing import Dict
 
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
+from torch import Tensor
 from torchvision import datasets, transforms
 
 from pretrain_argparser import PretrainArgparser
@@ -37,7 +39,7 @@ def denormalize(img, mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD):
 
 
 class DataAugmentationForMAE(object):
-    def __init__(self, args):
+    def __init__(self, args: PretrainArgparser):
         imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
         mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
         std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
@@ -64,14 +66,14 @@ class DataAugmentationForMAE(object):
 
 
 class DataAugmentationForMultiMAE(object):
-    def __init__(self, args):
+    def __init__(self, args: PretrainArgparser):
         imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
         self.rgb_mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
         self.rgb_std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
         self.input_size = args.input_size
         self.hflip = args.hflip
 
-    def __call__(self, task_dict):
+    def __call__(self, task_dict: Dict[str, Tensor]):
         flip = random.random() < self.hflip # Stores whether to flip all images or not
         ijhw = None # Stores crop coordinates used for all tasks
         
@@ -121,7 +123,12 @@ def build_pretraining_dataset(args: PretrainArgparser):
     print("Data Aug = %s" % str(transform))
     return ImageFolder(args.data_path, transform=transform)
 
-def build_multimae_pretraining_dataset(args: PretrainArgparser):
+def build_multimae_pretraining_train_dataset(args: PretrainArgparser):
+    transform = DataAugmentationForMultiMAE(args)
+    return MultiTaskImageFolder(
+        args.data_path, args.all_domains, transform=transform)
+
+def build_multimae_pretraining_dev_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args)
     return MultiTaskImageFolder(
         args.data_path, args.all_domains, transform=transform)

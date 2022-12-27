@@ -72,7 +72,7 @@ def load_state_dict(model, state_dict, prefix='', ignore_missing="relative_posit
         print('\n'.join(error_msgs))
 
 
-def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler, loss_balancer=None, model_ema=None):
+def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler, model_ema=None):
     output_dir = Path(args.output_dir)
     epoch_name = str(epoch)
     if loss_scaler is not None:
@@ -85,9 +85,6 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler, lo
                 'scaler': loss_scaler.state_dict(),
                 'args': args
             }
-
-            if loss_balancer is not None:
-                to_save['loss_balancer'] = loss_balancer.state_dict()
 
             if model_ema is not None:
                 to_save['model_ema'] = get_state_dict(model_ema)
