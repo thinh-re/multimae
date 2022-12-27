@@ -1,5 +1,7 @@
-# torch
-# torchvision
+torch 
+torchvision 
+torchaudio
+
 timm
 einops
 pandas
