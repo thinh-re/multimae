@@ -8,6 +8,10 @@ All our models are pre-trained on a single node with **8 A100 GPUs**.
 To pre-train MultiMAE on 8 GPUs using default settings, run:
 
 ```bash
+torchrun --nproc_per_node=1 run_pretraining_multimae.py --config cfgs/pretrain/multimae-b_98_rgb-depth_400e_kaggle.yaml
+```
+
+```bash
 torchrun --nproc_per_node=1 run_pretraining_multimae.py --config cfgs/pretrain/multimae-b_98_rgb-depth_400e.yaml
 ```
 
