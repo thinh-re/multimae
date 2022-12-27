@@ -27,7 +27,7 @@ hflip: 0.5
 loss_on_unmasked: False
 
 # Data
-data_path: './datasets' # Change me
+data_path: '/kaggle/input/multimae-v1' # Change me
 
 # Wandb logging
 log_wandb: True # Set to True to log to Weights & Biases
