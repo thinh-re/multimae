@@ -172,8 +172,12 @@ class MetricLogger(object):
 class WandbLogger(object):
     def __init__(self, args: PretrainArgparser):
         wandb.login(key='c3fc6b778d58b02a1519dec88b08f0dae1fd5b3b')
+        config = dict()
+        for key, value in args.__dict__.items():
+            if not key.startswith('_'):
+                config[key] = value
         wandb.init(
-            config=args,
+            config=config,
             # entity=args.wandb_entity,
             project=args.wandb_project,
             group=getattr(args, 'wandb_group', None),

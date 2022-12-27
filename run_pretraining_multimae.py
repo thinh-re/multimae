@@ -33,6 +33,7 @@ from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 from tqdm import tqdm
+from demo.app import log_inference
 
 import utils
 from multimae import MultiMAE
@@ -246,32 +247,9 @@ def main(args: PretrainArgparser):
     else:
         log_writer = None
         
-    from demo.app import inference
-    import torchvision
-    import cv2
-    
-    def save_train(input_dict: Dict[str, Tensor]):
-        rgb = torchvision.transforms.ToPILImage(mode='RGB')(input_dict['rgb'])
-        cv2.imwrite('train_rgb.png', np.array(rgb))
-        
-    def save_dev(input_dict: Dict[str, Tensor]):
-        rgb = torchvision.transforms.ToPILImage(mode='RGB')(input_dict['rgb'])
-        cv2.imwrite('dev_rgb.png', np.array(rgb))
-    
-    dev_input_dict: Dict[str, Tensor] = dataset_dev.__getitem__(0)[0]
-    train_input_dict: Dict[str, Tensor] = dataset_train.__getitem__(0)[0]
-    save_train(train_input_dict)
-    save_dev(dev_input_dict)
-    for key in dev_input_dict:
-        dev_input_dict[key] = dev_input_dict[key].unsqueeze(0)
-    inference(
-        model, 
-        dev_input_dict,
-        num_tokens=15,
-        manual_mode=False,
-        num_rgb=15,
-        num_depth=15,
-        seed=seed,
+    log_inference(
+        model, seed, dataset_dev, 
+        log_writer, epoch=0, num_samples=2,
     )
         
     print(f"Start training for {args.epochs} epochs")

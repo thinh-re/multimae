@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict
+from typing import Dict, Tuple
 
 import cv2
 import numpy as np
@@ -10,8 +10,11 @@ from einops import rearrange
 from PIL import Image
 from torch import Tensor
 
+import wandb
 from multimae.multimae import MultiMAE
 from utils.data_constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from utils.dataset_folder import MultiTaskImageFolder
+from utils.logger import WandbLogger
 
 
 def get_masked_image(
@@ -65,7 +68,7 @@ def get_pred_with_input(
     )
     return img    
 
-def save_tensor_image(file_path: str, img: Tensor):
+def to_cv_image(img: Tensor) -> np.ndarray:
     if len(img.shape) == 2:
         img = torchvision.transforms.ToPILImage(mode='L')(
             img.unsqueeze(0)
@@ -76,12 +79,14 @@ def save_tensor_image(file_path: str, img: Tensor):
         )
     img = np.array(img)
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(file_path, img)
+    return img
 
-def plot_predictions(
-    input_dict: Dict[str, Tensor], preds: Dict[str, Tensor], 
-    masks: Dict[str, Tensor], image_size=224,
-):
+def generate_predictions(
+    input_dict: Dict[str, Tensor], 
+    preds: Dict[str, Tensor], 
+    masks: Dict[str, Tensor], 
+    image_size=224,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     masked_rgb = get_masked_image(
         denormalize(input_dict['rgb']),
         masks['rgb'],
@@ -108,17 +113,52 @@ def plot_predictions(
         image_size=image_size
     )[0,0].detach().cpu()
 
-    save_tensor_image('masked_rgb.png', masked_rgb)
-    save_tensor_image('pred_rgb.png', pred_rgb)
-    save_tensor_image('rgb.png', denormalize(input_dict['rgb'])[0].permute(1,2,0).detach().cpu())
+    return to_cv_image(masked_rgb), \
+        to_cv_image(pred_rgb), \
+        to_cv_image(denormalize(input_dict['rgb'])[0].permute(1,2,0).detach().cpu()), \
+        to_cv_image(masked_depth), \
+        to_cv_image(pred_depth), \
+        to_cv_image(input_dict['depth'].squeeze().detach().cpu())
     
-    save_tensor_image('masked_depth.png', masked_depth)
-    save_tensor_image('pred_depth.png', pred_depth)
-    save_tensor_image('depth.png', input_dict['depth'].squeeze().detach().cpu())
-    
-    print('ww')
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+def log_inference(
+    model: MultiMAE,
+    seed: int,
+    dataset_dev: MultiTaskImageFolder,
+    log_writer: WandbLogger,
+    epoch: int,
+    num_samples: int = 10,
+):
+    data = [
+        # [wandb.Image, wandb.Image, wandb.Image, wandb.Image, wandb.Image, wandb.Image, ]
+    ]
+    for i in range(num_samples):
+        dev_input_dict = dataset_dev.__getitem__(i)[0]
+        masked_rgb, pred_rgb, rgb, \
+            masked_depth, pred_depth, depth = inference(
+            model, 
+            dev_input_dict,
+            num_tokens=15,
+            manual_mode=False,
+            num_rgb=15,
+            num_depth=15,
+            seed=seed,
+        )
+        data.append([
+            wandb.Image(masked_rgb),
+            wandb.Image(pred_rgb),
+            wandb.Image(rgb),
+            wandb.Image(masked_depth),
+            wandb.Image(pred_depth),
+            wandb.Image(depth),
+        ])
+    log_writer({
+        f'inference/{epoch}': wandb.Table(
+            data=data,
+            columns=['masked_rgb', 'pred_rgb', 'rgb', 'masked_depth', 'pred_depth', 'depth'],
+        )
+    })
 
 def inference(
     model: MultiMAE,
@@ -163,6 +203,4 @@ def inference(
     preds = {domain: pred.detach().cpu() for domain, pred in preds.items()}
     masks = {domain: mask.detach().cpu() for domain, mask in masks.items()}
 
-    plot_predictions(input_dict, preds, masks)
-
-    return 'output.png'
+    return generate_predictions(input_dict, preds, masks)
