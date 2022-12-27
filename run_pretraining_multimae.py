@@ -209,10 +209,7 @@ def main(args: PretrainArgparser):
     print("Number of training examples per epoch = %d" % (total_batch_size * num_training_steps_per_epoch))
 
     if args.distributed:
-        model = DistributedDataParallel(
-            model, device_ids=[args.gpu], 
-            find_unused_parameters=args.find_unused_params,
-        )
+        model = DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
     if args.distributed and args.task_balancer != 'none':
