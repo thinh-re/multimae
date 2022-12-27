@@ -18,11 +18,11 @@ import itertools
 import math
 from collections import OrderedDict
 from functools import partial
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from einops import repeat
-from torch import nn
+from torch import Tensor, nn
 from torch.distributions.dirichlet import Dirichlet
 
 from utils.registry import register_model
@@ -279,7 +279,7 @@ class MultiMAE(nn.Module):
         alphas: Union[float, List[float]] = 1.0,
         sample_tasks_uniformly: bool = False,
         fp32_output_adapters: List[str] = [],
-    ):
+    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         """
         Forward pass through input adapters, transformer encoder and output adapters.
         If specified, will randomly drop input tokens.
@@ -358,7 +358,7 @@ class MultiMAE(nn.Module):
             return encoder_tokens, task_masks
 
         # Decode tokens for each task using task-specific output adapters
-        preds = {
+        preds: Dict[str, Tensor] = {
             domain: self.output_adapters[domain](
                 encoder_tokens=encoder_tokens,
                 input_info=input_info,

@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 from PIL import Image
+from torch import Tensor
 from torchvision.datasets.vision import VisionDataset
 
 
@@ -288,7 +289,7 @@ class MultiTaskDatasetFolder(VisionDataset):
         class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
         return classes, class_to_idx
 
-    def __getitem__(self, index: int) -> Tuple[Dict, Any]:
+    def __getitem__(self, index: int) -> Tuple[Dict[str, Tensor], Tensor]:
         """
         Args:
             index (int): Index

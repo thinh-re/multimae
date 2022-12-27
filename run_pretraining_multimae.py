@@ -76,7 +76,7 @@ DOMAIN_CONF = {
     },
 }
 
-def get_model(args: PretrainArgparser) -> nn.Module:
+def get_model(args: PretrainArgparser) -> MultiMAE:
     """Creates and returns model from arguments
     """
     print(f"Creating model: {args.model} for inputs {args.in_domains} and outputs {args.out_domains}")
@@ -147,7 +147,7 @@ def main(args: PretrainArgparser):
     args.out_domains = args.out_domains.split('-')
     args.all_domains = list(set(args.in_domains) | set(args.out_domains))
 
-    model: MultiMAE = get_model(args)
+    model = get_model(args)
 
     tasks_loss_fn = {
         domain: DOMAIN_CONF[domain]['loss'](
@@ -165,7 +165,7 @@ def main(args: PretrainArgparser):
 
     # Get dataset
     dataset_train = build_multimae_pretraining_train_dataset(args)
-    dataset_dev = build_multimae_pretraining_dev_dataset(args)
+    dataset_dev = build_multimae_pretraining_dev_dataset(args)    
 
     if True:  # args.distributed:
         num_tasks = utils.get_world_size()
@@ -246,25 +246,34 @@ def main(args: PretrainArgparser):
     else:
         log_writer = None
         
-    # eval(
-    #     dataset_type = 'dev',
-    #     args = args,
-    #     model = model, 
-    #     data_loader = data_loader_dev, 
-    #     tasks_loss_fn = tasks_loss_fn,
-    #     device = device, 
-    #     epoch=0,
-    #     log_writer = log_writer,
-    #     num_encoded_tokens=args.num_encoded_tokens,
-    #     in_domains=args.in_domains,
-    #     loss_on_unmasked=args.loss_on_unmasked,
-    #     alphas=args.alphas,
-    #     sample_tasks_uniformly=args.sample_tasks_uniformly,
-    #     standardize_depth=args.standardize_depth,
-    #     extra_norm_pix_loss=args.extra_norm_pix_loss,
-    #     fp32_output_adapters=args.fp32_output_adapters.split('-'),
-    # )
-
+    from demo.app import inference
+    import torchvision
+    import cv2
+    
+    def save_train(input_dict: Dict[str, Tensor]):
+        rgb = torchvision.transforms.ToPILImage(mode='RGB')(input_dict['rgb'])
+        cv2.imwrite('train_rgb.png', np.array(rgb))
+        
+    def save_dev(input_dict: Dict[str, Tensor]):
+        rgb = torchvision.transforms.ToPILImage(mode='RGB')(input_dict['rgb'])
+        cv2.imwrite('dev_rgb.png', np.array(rgb))
+    
+    dev_input_dict: Dict[str, Tensor] = dataset_dev.__getitem__(0)[0]
+    train_input_dict: Dict[str, Tensor] = dataset_train.__getitem__(0)[0]
+    save_train(train_input_dict)
+    save_dev(dev_input_dict)
+    for key in dev_input_dict:
+        dev_input_dict[key] = dev_input_dict[key].unsqueeze(0)
+    inference(
+        model, 
+        dev_input_dict,
+        num_tokens=15,
+        manual_mode=False,
+        num_rgb=15,
+        num_depth=15,
+        seed=seed,
+    )
+        
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):

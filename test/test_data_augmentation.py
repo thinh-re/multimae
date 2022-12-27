@@ -1,9 +1,9 @@
-from utils.datasets import build_transform
-from PIL import Image
-import cv2
-from torch import Tensor
-import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
+from torch import Tensor
+
+from utils.datasets import build_transform
+
 
 class args:
     input_size = 224

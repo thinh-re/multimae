@@ -15,7 +15,6 @@
 import random
 from typing import Dict
 
-import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from torch import Tensor
@@ -66,7 +65,8 @@ class DataAugmentationForMAE(object):
 
 
 class DataAugmentationForMultiMAE(object):
-    def __init__(self, args: PretrainArgparser):
+    def __init__(self, args: PretrainArgparser, eval_mode: bool = False):
+        self.eval_mode = eval_mode
         imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
         self.rgb_mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
         self.rgb_std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
@@ -74,39 +74,40 @@ class DataAugmentationForMultiMAE(object):
         self.hflip = args.hflip
 
     def __call__(self, task_dict: Dict[str, Tensor]):
-        flip = random.random() < self.hflip # Stores whether to flip all images or not
-        ijhw = None # Stores crop coordinates used for all tasks
-        
-        # Crop and flip all tasks randomly, but consistently for all tasks
-        for task in task_dict:
-            if task not in IMAGE_TASKS:
-                continue
-            if ijhw is None:
-                # Official MAE code uses (0.2, 1.0) for scale and (0.75, 1.3333) for ratio
-                ijhw = transforms.RandomResizedCrop.get_params(
-                    task_dict[task], scale=(0.2, 1.0), ratio=(0.75, 1.3333)
-                )
-            i, j, h, w = ijhw
-            task_dict[task] = TF.crop(task_dict[task], i, j, h, w)
-            task_dict[task] = task_dict[task].resize((self.input_size, self.input_size))
-            if flip:
-                task_dict[task] = TF.hflip(task_dict[task])
+        if not self.eval_mode:
+            flip = random.random() < self.hflip # Stores whether to flip all images or not
+            ijhw = None # Stores crop coordinates used for all tasks
+            
+            # Crop and flip all tasks randomly, but consistently for all tasks
+            for task in task_dict:
+                if task not in IMAGE_TASKS:
+                    continue
+                if ijhw is None:
+                    # Official MAE code uses (0.2, 1.0) for scale and (0.75, 1.3333) for ratio
+                    ijhw = transforms.RandomResizedCrop.get_params(
+                        task_dict[task], scale=(0.2, 1.0), ratio=(0.75, 1.3333)
+                    )
+                i, j, h, w = ijhw
+                task_dict[task] = TF.crop(task_dict[task], i, j, h, w)
+                task_dict[task] = task_dict[task].resize((self.input_size, self.input_size))
+                if flip:
+                    task_dict[task] = TF.hflip(task_dict[task])
                 
         # Convert to Tensor
         for task in task_dict:
             if task in ['depth']:
-                img = torch.Tensor(np.array(task_dict[task]) / 2 ** 16)
-                img = img.unsqueeze(0)  # 1 x H x W
+                # img = torch.Tensor(np.array(task_dict[task]) / 2 ** 16)
+                img = TF.to_tensor(task_dict[task])
+                if self.eval_mode:
+                    img = TF.center_crop(img, min(img.shape[1:]))
+                    # img = img.unsqueeze(0)  # 1 x H x W
+                    img = TF.resize(img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC)
             elif task in ['rgb']:
                 img = TF.to_tensor(task_dict[task])
+                if self.eval_mode:
+                    img = TF.center_crop(img, min(img.shape[1:]))
+                    img = TF.resize(img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC)
                 img = TF.normalize(img, mean=self.rgb_mean, std=self.rgb_std)
-            elif task in ['semseg', 'semseg_coco']:
-                # TODO: add this to a config instead
-                # Rescale to 0.25x size (stride 4)
-                scale_factor = 0.25
-                img = task_dict[task].resize((int(self.input_size * scale_factor), int(self.input_size * scale_factor)))
-                # Using pil_to_tensor keeps it in uint8, to_tensor converts it to float (rescaled to [0, 1])
-                img = TF.pil_to_tensor(img).to(torch.long).squeeze(0)
                 
             task_dict[task] = img
         
@@ -129,7 +130,7 @@ def build_multimae_pretraining_train_dataset(args: PretrainArgparser):
         args.data_path, args.all_domains, transform=transform)
 
 def build_multimae_pretraining_dev_dataset(args: PretrainArgparser):
-    transform = DataAugmentationForMultiMAE(args)
+    transform = DataAugmentationForMultiMAE(args, eval_mode=True)
     return MultiTaskImageFolder(
         args.data_path, args.all_domains, transform=transform)
 
