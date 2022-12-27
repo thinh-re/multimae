@@ -47,8 +47,6 @@ from utils.data_constants import COCO_SEMSEG_NUM_CLASSES
 from utils.datasets import (build_multimae_pretraining_dev_dataset,
                             build_multimae_pretraining_train_dataset)
 from utils.optim_factory import create_optimizer
-from utils.task_balancing import (NoWeightingStrategy,
-                                  UncertaintyWeightingStrategy)
 
 CPU_DEVICE = torch.device('cpu')
 
