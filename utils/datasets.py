@@ -65,7 +65,11 @@ class DataAugmentationForMAE(object):
 
 
 class DataAugmentationForMultiMAE(object):
-    def __init__(self, args: PretrainArgparser, eval_mode: bool = False):
+    def __init__(
+        self, 
+        args: PretrainArgparser, 
+        eval_mode: bool = False,
+    ):
         self.eval_mode = eval_mode
         imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
         self.rgb_mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
@@ -73,7 +77,7 @@ class DataAugmentationForMultiMAE(object):
         self.input_size = args.input_size
         self.hflip = args.hflip
 
-    def __call__(self, task_dict: Dict[str, Tensor]):
+    def __call__(self, task_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
         if not self.eval_mode:
             flip = random.random() < self.hflip # Stores whether to flip all images or not
             ijhw = None # Stores crop coordinates used for all tasks

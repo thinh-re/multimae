@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 
 import torch
 import torch.distributed as dist
+from torch.utils.data import DataLoader
 
 try:
     import wandb
@@ -123,7 +124,10 @@ class MetricLogger(object):
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, iterable, print_freq, header=None):
+    def log_every(
+        self, iterable: DataLoader, 
+        print_freq: int, header: Optional[str]=None,
+    ):
         i = 0
         if not header:
             header = ''
