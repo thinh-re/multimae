@@ -6,11 +6,18 @@
 import io
 import os
 from pathlib import Path
+from typing import Dict, Optional
 
 import torch
+from torch import nn, Tensor
+from torch.nn.parallel import DistributedDataParallel
+from torch.optim.optimizer import Optimizer
+
+from pretrain_argparser import PretrainArgparser
 
 from .dist import save_on_master
 from .model import get_state_dict
+from .native_scaler import NativeScalerWithGradNormCount
 
 
 def _load_checkpoint_for_ema(model_ema, checkpoint):
@@ -23,7 +30,7 @@ def _load_checkpoint_for_ema(model_ema, checkpoint):
     model_ema._load_checkpoint(mem_file)
 
 
-def load_state_dict(model, state_dict, prefix='', ignore_missing="relative_position_index"):
+def load_state_dict(model: nn.Module, state_dict: Dict[str, Tensor], prefix='', ignore_missing="relative_position_index"):
     missing_keys = []
     unexpected_keys = []
     error_msgs = []
@@ -72,7 +79,15 @@ def load_state_dict(model, state_dict, prefix='', ignore_missing="relative_posit
         print('\n'.join(error_msgs))
 
 
-def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler, model_ema=None):
+def save_model(
+    args: PretrainArgparser, 
+    epoch: int, 
+    model: DistributedDataParallel, 
+    model_without_ddp: nn.Module, 
+    optimizer: Optimizer, 
+    loss_scaler: NativeScalerWithGradNormCount, 
+    model_ema: Optional[nn.Module] = None,
+):
     output_dir = Path(args.output_dir)
     epoch_name = str(epoch)
     if loss_scaler is not None:
@@ -83,7 +98,7 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler, mo
                 'optimizer': optimizer.state_dict(),
                 'epoch': epoch,
                 'scaler': loss_scaler.state_dict(),
-                'args': args
+                'args': args,
             }
 
             if model_ema is not None:

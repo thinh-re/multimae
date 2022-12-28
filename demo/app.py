@@ -169,13 +169,13 @@ def inference(
     num_depth: int, 
     seed: int,
 ):
+
     num_tokens = int(588 * num_tokens / 100.0)
     num_rgb = int(196 * num_rgb / 100.0)
     num_depth = int(196 * num_depth / 100.0)
 
     # To GPU
     input_dict = {k: v.unsqueeze(0).to(device) for k,v in input_dict.items()}
-
     if not manual_mode:
         # Randomly sample masks
         torch.manual_seed(int(time.time())) # Random mode is random

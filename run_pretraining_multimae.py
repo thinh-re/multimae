@@ -252,6 +252,12 @@ def main(args: PretrainArgparser):
         log_writer.set_step(0)
     else:
         log_writer = None
+        
+    if global_rank == 0:
+        log_inference(
+            model, seed, dataset_dev, 
+            log_writer, epoch='latest', num_samples=10,
+        )
             
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
@@ -286,7 +292,7 @@ def main(args: PretrainArgparser):
         if log_writer is not None:
             log_writer.update({**{k: v for k, v in train_stats.items()}, 'epoch': epoch})
         if args.output_dir:
-            if (epoch + 1) % args.save_ckpt_freq == 0 or epoch + 1 == args.epochs:
+            if global_rank == 0 and (epoch + 1) % args.save_ckpt_freq == 0 or epoch + 1 == args.epochs:
                 utils.save_model(
                     args=args, model=model, 
                     model_without_ddp=model_without_ddp, 
