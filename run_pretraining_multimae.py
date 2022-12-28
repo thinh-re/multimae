@@ -334,7 +334,7 @@ def main(args: PretrainArgparser):
 
 def train_one_epoch(
     model: DistributedDataParallel, 
-    data_loader: Iterable, 
+    data_loader: DataLoader, 
     tasks_loss_fn: Dict[str, torch.nn.Module],
     optimizer: torch.optim.Optimizer,
     device: torch.device, 

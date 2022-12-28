@@ -15,6 +15,7 @@
 import random
 from typing import Dict
 
+import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from torch import Tensor
@@ -100,12 +101,13 @@ class DataAugmentationForMultiMAE(object):
         # Convert to Tensor
         for task in task_dict:
             if task in ['depth']:
-                # img = torch.Tensor(np.array(task_dict[task]) / 2 ** 16)
-                img = TF.to_tensor(task_dict[task])
                 if self.eval_mode:
+                    img = TF.to_tensor(task_dict[task])
                     img = TF.center_crop(img, min(img.shape[1:]))
                     # img = img.unsqueeze(0)  # 1 x H x W
                     img = TF.resize(img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC)
+                else:
+                    img = torch.Tensor(np.array(task_dict[task]) / 2 ** 16)
             elif task in ['rgb']:
                 img = TF.to_tensor(task_dict[task])
                 if self.eval_mode:

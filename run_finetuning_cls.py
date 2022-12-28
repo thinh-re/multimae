@@ -478,12 +478,14 @@ def train_class_batch(model, samples, target, criterion):
     return loss, outputs
 
 
-def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
-                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
-                    model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None, log_writer=None,
-                    start_steps=None, lr_schedule_values=None, wd_schedule_values=None,
-                    num_training_steps_per_epoch=None, update_freq=None):
+def train_one_epoch(
+    model: torch.nn.Module, criterion: torch.nn.Module,
+    data_loader: Iterable, optimizer: torch.optim.Optimizer,
+    device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
+    model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None, log_writer=None,
+    start_steps=None, lr_schedule_values=None, wd_schedule_values=None,
+    num_training_steps_per_epoch=None, update_freq=None
+):
     model.train(True)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
