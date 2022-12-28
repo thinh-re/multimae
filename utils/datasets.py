@@ -13,7 +13,7 @@
 # --------------------------------------------------------
 
 import random
-from typing import Dict
+from typing import Dict, Tuple
 
 import numpy as np
 import torch
@@ -30,7 +30,11 @@ from .data_constants import (IMAGE_TASKS, IMAGENET_DEFAULT_MEAN,
 from .dataset_folder import ImageFolder, MultiTaskImageFolder
 
 
-def denormalize(img, mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD):
+def denormalize(
+    img: Tensor, 
+    mean: Tuple[float, float, float]=IMAGENET_DEFAULT_MEAN, 
+    std: Tuple[float, float, float]=IMAGENET_DEFAULT_STD,
+) -> Tensor:
     return TF.normalize(
         img.clone(),
         mean= [-m/s for m, s in zip(mean, std)],
@@ -104,10 +108,10 @@ class DataAugmentationForMultiMAE(object):
                 if self.eval_mode:
                     img = TF.to_tensor(task_dict[task])
                     img = TF.center_crop(img, min(img.shape[1:]))
-                    # img = img.unsqueeze(0)  # 1 x H x W
                     img = TF.resize(img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC)
                 else:
                     img = torch.Tensor(np.array(task_dict[task]) / 2 ** 16)
+                    img = img.unsqueeze(0)  # 1 x H x W
             elif task in ['rgb']:
                 img = TF.to_tensor(task_dict[task])
                 if self.eval_mode:
