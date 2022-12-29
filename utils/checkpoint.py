@@ -112,7 +112,14 @@ def save_model(
         model.save_checkpoint(save_dir=args.output_dir, tag="checkpoint-%s" % epoch_name, client_state=client_state)
 
 
-def auto_load_model(args, model, model_without_ddp, optimizer, loss_scaler, model_ema=None):
+def auto_load_model(
+    args: PretrainArgparser,
+    model: DistributedDataParallel,
+    model_without_ddp: nn.Module,
+    optimizer: Optimizer,
+    loss_scaler: NativeScalerWithGradNormCount,
+    model_ema: Optional[nn.Module] = None,
+):
     output_dir = Path(args.output_dir)
     if loss_scaler is not None:
         # torch.amp
