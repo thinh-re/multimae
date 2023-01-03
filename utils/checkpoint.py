@@ -6,17 +6,18 @@
 import io
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, OrderedDict
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.optimizer import Optimizer
 
 from pretrain_argparser import PretrainArgparser
 
-from .dist import save_on_master
+from .dist import is_main_process, save_on_master
 from .model import get_state_dict
+from .multimae_keys import MULTIVIT_PRETRAINED_KEYS
 from .native_scaler import NativeScalerWithGradNormCount
 
 
@@ -105,12 +106,34 @@ def save_model(
                 to_save['model_ema'] = get_state_dict(model_ema)
 
             save_on_master(to_save, checkpoint_path)
+        if is_main_process():
+            save_model_for_downstream_tasks(args, epoch, model_without_ddp)
     else:
         client_state = {'epoch': epoch}
         if model_ema is not None:
             client_state['model_ema'] = get_state_dict(model_ema)
-        model.save_checkpoint(save_dir=args.output_dir, tag="checkpoint-%s" % epoch_name, client_state=client_state)
-
+        model.save_checkpoint(
+            save_dir=args.output_dir, 
+            tag="checkpoint-%s" % epoch_name, 
+            client_state=client_state,
+        )
+               
+def save_model_for_downstream_tasks(
+    args: PretrainArgparser, 
+    epoch: int, 
+    model_without_ddp: nn.Module, 
+):
+    output_dir = Path(args.output_dir)
+    checkpoint_path = os.path.join(
+        output_dir, f'multimae_{args.wandb_run_name}_e{epoch}.pth')
+    
+    state_dict: OrderedDict[str, Tensor] = model_without_ddp.state_dict()
+    selected_state_dict = OrderedDict()
+    for key, value in state_dict.items():
+        if key in MULTIVIT_PRETRAINED_KEYS:
+            selected_state_dict[key] = value
+    print(selected_state_dict.keys())
+    torch.save(OrderedDict(model=selected_state_dict), checkpoint_path)
 
 def auto_load_model(
     args: PretrainArgparser,
