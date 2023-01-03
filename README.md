@@ -7,6 +7,8 @@
 
 ## Results
 
+Kaggle Notebook: [Pretrain MultiMAE for RGB-D SOD](https://www.kaggle.com/code/thinhhuynh3108/pretrain-multimae-for-rgb-d-sod)
+
 More details on [Wandb report](https://api.wandb.ai/report/thinh-huynh-re/0e33ob97)
 
 <img src="assets/qualitative_evaluation.png">
