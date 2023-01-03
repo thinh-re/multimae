@@ -5,11 +5,13 @@
 # --------------------------------------------------------
 
 import math
+from typing import Iterator, Optional, Union
 
 import numpy as np
 import torch
 from torch import Tensor
 from torch._six import inf
+from torch.nn.parameter import Parameter
 
 
 class NativeScalerWithGradNormCount:
@@ -19,8 +21,14 @@ class NativeScalerWithGradNormCount:
         self._scaler = torch.cuda.amp.GradScaler(enabled=enabled)
 
     def __call__(
-        self, loss: Tensor, optimizer: torch.optim.Optimizer, 
-        clip_grad=None, skip_grad=None, parameters=None, create_graph=False, update_grad=True
+        self, 
+        loss: Tensor, 
+        optimizer: torch.optim.Optimizer, 
+        clip_grad: Optional[float]=None, 
+        skip_grad: Optional[float]=None, 
+        parameters: Optional[Iterator[Parameter]]=None, 
+        create_graph: bool = False, 
+        update_grad: bool = True,
     ):
         self._scaler.scale(loss).backward(create_graph=create_graph)
         if update_grad:
@@ -50,8 +58,11 @@ class NativeScalerWithGradNormCount:
         self._scaler.load_state_dict(state_dict)
 
 
-def get_grad_norm_(parameters, norm_type: float = 2.0) -> torch.Tensor:
-    if isinstance(parameters, torch.Tensor):
+def get_grad_norm_(
+    parameters: Union[Iterator[Parameter], Tensor], 
+    norm_type: float = 2.0,
+) -> Tensor:
+    if isinstance(parameters, Tensor):
         parameters = [parameters]
     parameters = [p for p in parameters if p.grad is not None]
     norm_type = float(norm_type)
@@ -69,8 +80,10 @@ def get_grad_norm_(parameters, norm_type: float = 2.0) -> torch.Tensor:
 
 
 def cosine_scheduler(
-    base_value: float, final_value: float, epochs: int, niter_per_ep: int, 
-    warmup_epochs=0, start_warmup_value=0, warmup_steps=-1
+    base_value: float, final_value: float, 
+    epochs: int, niter_per_ep: int, 
+    warmup_epochs=0, start_warmup_value=0, 
+    warmup_steps=-1,
 ) -> np.ndarray:
     warmup_schedule = np.array([])
     warmup_iters = warmup_epochs * niter_per_ep

@@ -441,8 +441,11 @@ def train_one_epoch(
         # this attribute is added by timm on one optimizer (adahessian)
         is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
         grad_norm = loss_scaler(
-            loss, optimizer, clip_grad=max_norm, skip_grad=max_skip_norm,
-            parameters=model.parameters(), create_graph=is_second_order)
+            loss, optimizer, clip_grad=max_norm, 
+            skip_grad=max_skip_norm,
+            parameters=model.parameters(), 
+            create_graph=is_second_order,
+        )
         loss_scale_value = loss_scaler.state_dict()["scale"]
 
         torch.cuda.synchronize()
