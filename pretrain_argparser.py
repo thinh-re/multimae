@@ -108,7 +108,7 @@ def get_args() -> PretrainArgparser:
     # defaults will have been overridden if config file specified.
     args = parser.parse_args(remaining)
     
-    args.wandb_run_name = args.config.split('.yaml')[0]
+    args.wandb_run_name = args_config.config.split('/')[-1].split('.yaml')[0]
     args.output_dir = os.path.join(
         args.output_dir,
         args.wandb_run_name,
