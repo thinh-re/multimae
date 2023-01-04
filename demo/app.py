@@ -7,8 +7,7 @@ import torch
 import torchvision
 import torchvision.transforms.functional as TF
 from einops import rearrange
-from PIL import Image
-from torch import Tensor
+from torch import Tensor, nn
 
 import wandb
 from multimae.multimae import MultiMAE
@@ -122,6 +121,8 @@ def generate_predictions(
     
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+l1loss = nn.L1Loss()
+
 def log_inference(
     model: MultiMAE,
     seed: int,
@@ -147,18 +148,25 @@ def log_inference(
             num_depth=15,
             seed=seed,
         )
+        rgb_mae = l1loss(rgb, pred_rgb)
+        depth_mae = l1loss(depth, pred_depth)
         data.append([
             wandb.Image(masked_rgb),
             wandb.Image(pred_rgb),
             wandb.Image(rgb),
+            rgb_mae,
             wandb.Image(masked_depth),
             wandb.Image(pred_depth),
             wandb.Image(depth),
+            depth_mae,
         ])
     log_writer.update({
         f'inference/{epoch}': wandb.Table(
             data=data,
-            columns=['masked_rgb', 'pred_rgb', 'rgb', 'masked_depth', 'pred_depth', 'depth'],
+            columns=[
+                'masked_rgb', 'pred_rgb', 'rgb', 'rgb_mae', 
+                'masked_depth', 'pred_depth', 'depth', 'depth_mae',
+            ],
         )
     })
 
