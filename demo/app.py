@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -126,10 +126,12 @@ def log_inference(
     model: MultiMAE,
     seed: int,
     dataset_dev: MultiTaskImageFolder,
-    log_writer: WandbLogger,
+    log_writer: Optional[WandbLogger],
     epoch: int,
     num_samples: int = 10,
 ):
+    if log_writer is None:
+        return
     data = [
         # [wandb.Image, wandb.Image, wandb.Image, wandb.Image, wandb.Image, wandb.Image, ]
     ]
