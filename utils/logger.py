@@ -203,7 +203,10 @@ class WandbLogger(object):
                 v = v.item()
             log_dict[k] = v
 
-        wandb.log(log_dict, step=self.step)
+        wandb.log(
+            log_dict, 
+            # step=self.step,
+        )
 
     def flush(self):
         pass
