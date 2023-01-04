@@ -148,8 +148,8 @@ def log_inference(
             num_depth=15,
             seed=seed,
         )
-        rgb_mae = l1loss(rgb, pred_rgb)
-        depth_mae = l1loss(depth, pred_depth)
+        rgb_mae = l1loss(Tensor(rgb), Tensor(pred_rgb))
+        depth_mae = l1loss(Tensor(depth), Tensor(pred_depth))
         data.append([
             wandb.Image(masked_rgb),
             wandb.Image(pred_rgb),
