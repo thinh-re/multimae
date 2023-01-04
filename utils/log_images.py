@@ -10,9 +10,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-import wandb
 
 import utils
+import wandb
 from utils.datasets_semseg import (ade_classes, hypersim_classes,
                                    nyu_v2_40_classes)
 
@@ -29,14 +29,14 @@ def inv_norm(tensor: torch.Tensor) -> torch.Tensor:
 
 @torch.no_grad()
 def log_semseg_wandb(
-        images: torch.Tensor, 
-        preds: List[np.ndarray], 
-        gts: List[np.ndarray],
-        depth_gts: List[np.ndarray],
-        dataset_name: str = 'ade20k',
-        image_count=8, 
-        prefix=""
-    ):
+    images: torch.Tensor, 
+    preds: List[np.ndarray], 
+    gts: List[np.ndarray],
+    depth_gts: List[np.ndarray],
+    dataset_name: str = 'ade20k',
+    image_count=8, 
+    prefix="",
+):
 
     if dataset_name == 'ade20k':
         classes = ade_classes()
@@ -85,11 +85,11 @@ def log_semseg_wandb(
 
 @torch.no_grad()
 def log_taskonomy_wandb(
-        preds: Dict[str, torch.Tensor], 
-        gts: Dict[str, torch.Tensor], 
-        image_count=8, 
-        prefix=""
-    ):
+    preds: Dict[str, torch.Tensor], 
+    gts: Dict[str, torch.Tensor], 
+    image_count=8, 
+    prefix="",
+):
     pred_tasks = list(preds.keys())
     gt_tasks = list(gts.keys())
     if 'mask_valid' in gt_tasks:
