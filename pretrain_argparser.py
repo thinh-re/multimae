@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+import os
 import yaml
 from tap import Tap
 
@@ -7,7 +8,7 @@ from utils.data_constants import IMAGENET_TRAIN_PATH
 
 
 class PretrainArgparser(Tap):
-    config: Optional[str] = ''
+    config: str = ''
     
     batch_size: Optional[int] = 256
     epochs: Optional[int] = 1600
@@ -106,6 +107,12 @@ def get_args() -> PretrainArgparser:
     # The main arg parser parses the rest of the args, the usual
     # defaults will have been overridden if config file specified.
     args = parser.parse_args(remaining)
+    
+    args.wandb_run_name = args.config.split('.yaml')[0]
+    args.output_dir = os.path.join(
+        args.output_dir,
+        args.wandb_run_name,
+    )
 
     return args
 

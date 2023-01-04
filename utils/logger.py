@@ -182,7 +182,6 @@ class WandbLogger(object):
                 config[key] = value
         wandb.init(
             config=config,
-            # entity=args.wandb_entity,
             project=args.wandb_project,
             group=getattr(args, 'wandb_group', None),
             name=args.wandb_run_name,
