@@ -10,7 +10,7 @@ from typing import Iterator, Optional, Union
 import numpy as np
 import torch
 from torch import Tensor
-from torch._six import inf
+# from torch._six import inf
 from torch.nn.parameter import Parameter
 
 
