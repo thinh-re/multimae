@@ -30,7 +30,7 @@ def get_num_layer_for_vit(var_name, num_max_layer):
     elif var_name.startswith("rel_pos_bias"):
         return num_max_layer - 1
     elif var_name.startswith("blocks") or var_name.startswith("encoder"):
-        layer_id = int(var_name.split('.')[1])
+        layer_id = int(var_name.split(".")[1])
         return layer_id + 1
     else:
         return num_max_layer - 1
@@ -48,9 +48,13 @@ class LayerDecayValueAssigner(object):
 
 
 def get_parameter_groups(
-    model, weight_decay=1e-5, skip_list=(), 
-    get_num_layer=None, get_layer_scale=None, 
-    decoder_decay=None, decoder_list=(), 
+    model,
+    weight_decay=1e-5,
+    skip_list=(),
+    get_num_layer=None,
+    get_layer_scale=None,
+    decoder_decay=None,
+    decoder_list=(),
     no_lr_scale_list=[],
 ):
     parameter_group_names = {}
@@ -63,8 +67,10 @@ def get_parameter_groups(
         # Assign weight decay values
         if len(param.shape) == 1 or name.endswith(".bias") or name in skip_list:
             group_name = "no_decay"
-            this_weight_decay = 0.
-        elif decoder_decay is not None and (name.startswith("decoder.") or name in decoder_list):
+            this_weight_decay = 0.0
+        elif decoder_decay is not None and (
+            name.startswith("decoder.") or name in decoder_list
+        ):
             group_name = "decoder_decay"
             this_weight_decay = decoder_decay
         else:
@@ -78,7 +84,7 @@ def get_parameter_groups(
             group_name = "layer_%d_%s" % (layer_id, group_name)
             if name in no_lr_scale_list:
                 skip_scale = True
-                group_name = f'{group_name}_no_lr_scale'
+                group_name = f"{group_name}_no_lr_scale"
         else:
             layer_id = None
 
@@ -86,17 +92,17 @@ def get_parameter_groups(
             if get_layer_scale is not None and not skip_scale:
                 scale = get_layer_scale(layer_id)
             else:
-                scale = 1.
+                scale = 1.0
 
             parameter_group_names[group_name] = {
                 "weight_decay": this_weight_decay,
                 "params": [],
-                "lr_scale": scale
+                "lr_scale": scale,
             }
             parameter_group_vars[group_name] = {
                 "weight_decay": this_weight_decay,
                 "params": [],
-                "lr_scale": scale
+                "lr_scale": scale,
             }
 
         parameter_group_vars[group_name]["params"].append(param)
@@ -104,20 +110,22 @@ def get_parameter_groups(
     print("Param groups = %s" % json.dumps(parameter_group_names, indent=2))
     return list(parameter_group_vars.values())
 
+
 from pretrain_argparser import PretrainArgparser
 from torch.nn import Module
 
+
 def create_optimizer(
-    args: PretrainArgparser, 
-    model: Dict[str, Module], 
-    get_num_layer=None, 
-    get_layer_scale=None, 
-    filter_bias_and_bn=True, 
+    args: PretrainArgparser,
+    model: Dict[str, Module],
+    get_num_layer=None,
+    get_layer_scale=None,
+    filter_bias_and_bn=True,
     skip_list=None,
 ):
-    '''
+    """
     Model can either be a single nn.Module, or a dictionary with {'model': model}.
-    '''
+    """
     opt_lower = args.opt.lower()
     weight_decay = args.weight_decay
     try:
@@ -125,7 +133,7 @@ def create_optimizer(
     except:
         decoder_decay = None
     try:
-        no_lr_scale_list = args.no_lr_scale_list.split('-')
+        no_lr_scale_list = args.no_lr_scale_list.split("-")
     except:
         no_lr_scale_list = []
 
@@ -134,51 +142,67 @@ def create_optimizer(
             skip = {}
             if skip_list is not None:
                 skip = skip_list
-            elif hasattr(m, 'no_weight_decay'):
+            elif hasattr(m, "no_weight_decay"):
                 skip = m.no_weight_decay()
-            decoder={}
-            if hasattr(m, 'decoder_weight_decay'):
+            decoder = {}
+            if hasattr(m, "decoder_weight_decay"):
                 decoder = m.decoder_weight_decay()
-            parameters = get_parameter_groups(m, weight_decay, skip, get_num_layer, get_layer_scale, decoder_decay, decoder, no_lr_scale_list)
-            wd = 0.
+            parameters = get_parameter_groups(
+                m,
+                weight_decay,
+                skip,
+                get_num_layer,
+                get_layer_scale,
+                decoder_decay,
+                decoder,
+                no_lr_scale_list,
+            )
+            wd = 0.0
         else:
             parameters = m.parameters()
             wd = weight_decay
         return parameters, wd
-    
+
     if isinstance(model, Module):
         parameters, weight_decay = get_parameters(model)
     elif isinstance(model, dict):
         parameters = [
             {
-                "params": [p for n, p in model['model'].named_parameters()
-                        if p.requires_grad],
-                "lr_scale": 1.,
+                "params": [
+                    p for n, p in model["model"].named_parameters() if p.requires_grad
+                ],
+                "lr_scale": 1.0,
             },
         ]
 
-    if 'fused' in opt_lower:
-        assert has_apex and torch.cuda.is_available(), 'APEX and CUDA required for fused optimizers'
+    if "fused" in opt_lower:
+        assert (
+            has_apex and torch.cuda.is_available()
+        ), "APEX and CUDA required for fused optimizers"
 
     opt_args = dict(lr=args.lr, weight_decay=weight_decay)
-    if hasattr(args, 'opt_eps') and args.opt_eps is not None:
-        opt_args['eps'] = args.opt_eps
-    if hasattr(args, 'opt_betas') and args.opt_betas is not None:
-        opt_args['betas'] = args.opt_betas
+    if hasattr(args, "opt_eps") and args.opt_eps is not None:
+        opt_args["eps"] = args.opt_eps
+    if hasattr(args, "opt_betas") and args.opt_betas is not None:
+        opt_args["betas"] = args.opt_betas
 
     print("optimizer settings:", opt_args)
 
-    opt_split = opt_lower.split('_')
+    opt_split = opt_lower.split("_")
     opt_lower = opt_split[-1]
-    if opt_lower == 'sgd' or opt_lower == 'nesterov':
-        opt_args.pop('eps', None)
-        optimizer = optim.SGD(parameters, momentum=args.momentum, nesterov=True, **opt_args)
-    elif opt_lower == 'momentum':
-        opt_args.pop('eps', None)
-        optimizer = optim.SGD(parameters, momentum=args.momentum, nesterov=False, **opt_args)
-    elif opt_lower == 'adam':
+    if opt_lower == "sgd" or opt_lower == "nesterov":
+        opt_args.pop("eps", None)
+        optimizer = optim.SGD(
+            parameters, momentum=args.momentum, nesterov=True, **opt_args
+        )
+    elif opt_lower == "momentum":
+        opt_args.pop("eps", None)
+        optimizer = optim.SGD(
+            parameters, momentum=args.momentum, nesterov=False, **opt_args
+        )
+    elif opt_lower == "adam":
         optimizer = optim.Adam(parameters, **opt_args)
-    elif opt_lower == 'adamw':
+    elif opt_lower == "adamw":
         optimizer = optim.AdamW(parameters, **opt_args)
     else:
         assert False and "Invalid optimizer"

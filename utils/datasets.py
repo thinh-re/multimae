@@ -24,38 +24,49 @@ from torchvision import datasets, transforms
 from pretrain_argparser import PretrainArgparser
 from utils import create_transform
 
-from .data_constants import (IMAGE_TASKS, IMAGENET_DEFAULT_MEAN,
-                             IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN,
-                             IMAGENET_INCEPTION_STD)
+from .data_constants import (
+    IMAGE_TASKS,
+    IMAGENET_DEFAULT_MEAN,
+    IMAGENET_DEFAULT_STD,
+    IMAGENET_INCEPTION_MEAN,
+    IMAGENET_INCEPTION_STD,
+)
 from .dataset_folder import ImageFolder, MultiTaskImageFolder
 
 
 def denormalize(
-    img: Tensor, 
-    mean: Tuple[float, float, float]=IMAGENET_DEFAULT_MEAN, 
-    std: Tuple[float, float, float]=IMAGENET_DEFAULT_STD,
+    img: Tensor,
+    mean: Tuple[float, float, float] = IMAGENET_DEFAULT_MEAN,
+    std: Tuple[float, float, float] = IMAGENET_DEFAULT_STD,
 ) -> Tensor:
     return TF.normalize(
-        img.clone(),
-        mean= [-m/s for m, s in zip(mean, std)],
-        std= [1/s for s in std]
+        img.clone(), mean=[-m / s for m, s in zip(mean, std)], std=[1 / s for s in std]
     )
 
 
 class DataAugmentationForMAE(object):
     def __init__(self, args: PretrainArgparser):
         imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
-        mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
-        std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
+        mean = (
+            IMAGENET_INCEPTION_MEAN
+            if not imagenet_default_mean_and_std
+            else IMAGENET_DEFAULT_MEAN
+        )
+        std = (
+            IMAGENET_INCEPTION_STD
+            if not imagenet_default_mean_and_std
+            else IMAGENET_DEFAULT_STD
+        )
 
         trans = [transforms.RandomResizedCrop(args.input_size)]
         if args.hflip > 0.0:
             trans.append(transforms.RandomHorizontalFlip(args.hflip))
-        trans.extend([
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=torch.tensor(mean),
-                std=torch.tensor(std))])
+        trans.extend(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=torch.tensor(mean), std=torch.tensor(std)),
+            ]
+        )
 
         self.transform = transforms.Compose(trans)
 
@@ -71,22 +82,32 @@ class DataAugmentationForMAE(object):
 
 class DataAugmentationForMultiMAE(object):
     def __init__(
-        self, 
-        args: PretrainArgparser, 
+        self,
+        args: PretrainArgparser,
         eval_mode: bool = False,
     ):
         self.eval_mode = eval_mode
         imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
-        self.rgb_mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
-        self.rgb_std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
+        self.rgb_mean = (
+            IMAGENET_INCEPTION_MEAN
+            if not imagenet_default_mean_and_std
+            else IMAGENET_DEFAULT_MEAN
+        )
+        self.rgb_std = (
+            IMAGENET_INCEPTION_STD
+            if not imagenet_default_mean_and_std
+            else IMAGENET_DEFAULT_STD
+        )
         self.input_size = args.input_size
         self.hflip = args.hflip
 
     def __call__(self, task_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
         if not self.eval_mode:
-            flip = random.random() < self.hflip # Stores whether to flip all images or not
-            ijhw = None # Stores crop coordinates used for all tasks
-            
+            flip = (
+                random.random() < self.hflip
+            )  # Stores whether to flip all images or not
+            ijhw = None  # Stores crop coordinates used for all tasks
+
             # Crop and flip all tasks randomly, but consistently for all tasks
             for task in task_dict:
                 if task not in IMAGE_TASKS:
@@ -98,51 +119,59 @@ class DataAugmentationForMultiMAE(object):
                     )
                 i, j, h, w = ijhw
                 task_dict[task] = TF.crop(task_dict[task], i, j, h, w)
-                task_dict[task] = task_dict[task].resize((self.input_size, self.input_size))
+                task_dict[task] = task_dict[task].resize(
+                    (self.input_size, self.input_size)
+                )
                 if flip:
                     task_dict[task] = TF.hflip(task_dict[task])
-                
+
         # Convert to Tensor
         for task in task_dict:
-            if task in ['depth']:
+            if task in ["depth"]:
                 if self.eval_mode:
                     img = TF.to_tensor(task_dict[task])
                     img = TF.center_crop(img, min(img.shape[1:]))
-                    img = TF.resize(img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC)
+                    img = TF.resize(
+                        img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC
+                    )
                 else:
-                    img = torch.Tensor(np.array(task_dict[task]) / 2 ** 16)
+                    img = torch.Tensor(np.array(task_dict[task]) / 2**16)
                     img = img.unsqueeze(0)  # 1 x H x W
-            elif task in ['rgb']:
+            elif task in ["rgb"]:
                 img = TF.to_tensor(task_dict[task])
                 if self.eval_mode:
                     img = TF.center_crop(img, min(img.shape[1:]))
-                    img = TF.resize(img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC)
+                    img = TF.resize(
+                        img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC
+                    )
                 img = TF.normalize(img, mean=self.rgb_mean, std=self.rgb_std)
-                
+
             task_dict[task] = img
-        
+
         return task_dict
 
     def __repr__(self):
         repr = "(DataAugmentationForMultiMAE,\n"
-        #repr += "  transform = %s,\n" % str(self.transform)
+        # repr += "  transform = %s,\n" % str(self.transform)
         repr += ")"
         return repr
+
 
 def build_pretraining_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMAE(args)
     print("Data Aug = %s" % str(transform))
     return ImageFolder(args.data_path, transform=transform)
 
+
 def build_multimae_pretraining_train_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args)
-    return MultiTaskImageFolder(
-        args.data_path, args.all_domains, transform=transform)
+    return MultiTaskImageFolder(args.data_path, args.all_domains, transform=transform)
+
 
 def build_multimae_pretraining_dev_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args, eval_mode=True)
-    return MultiTaskImageFolder(
-        args.data_path, args.all_domains, transform=transform)
+    return MultiTaskImageFolder(args.data_path, args.all_domains, transform=transform)
+
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
@@ -158,10 +187,10 @@ def build_dataset(is_train, args):
             print(t)
     print("---------------------------")
 
-    if args.data_set == 'CIFAR':
+    if args.data_set == "CIFAR":
         dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
         nb_classes = 100
-    elif args.data_set == 'IMNET':
+    elif args.data_set == "IMNET":
         # root = os.path.join(args.data_path, 'train' if is_train else 'val')
         root = args.data_path if is_train else args.eval_data_path
         dataset = datasets.ImageFolder(root, transform=transform)
@@ -182,8 +211,16 @@ def build_dataset(is_train, args):
 def build_transform(is_train, args):
     resize_im = args.input_size > 32
     imagenet_default_mean_and_std = args.imagenet_default_mean_and_std
-    mean = IMAGENET_INCEPTION_MEAN if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_MEAN
-    std = IMAGENET_INCEPTION_STD if not imagenet_default_mean_and_std else IMAGENET_DEFAULT_STD
+    mean = (
+        IMAGENET_INCEPTION_MEAN
+        if not imagenet_default_mean_and_std
+        else IMAGENET_DEFAULT_MEAN
+    )
+    std = (
+        IMAGENET_INCEPTION_STD
+        if not imagenet_default_mean_and_std
+        else IMAGENET_DEFAULT_STD
+    )
 
     if is_train:
         # this should always dispatch to transforms_imagenet_train
@@ -202,8 +239,7 @@ def build_transform(is_train, args):
         if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
-            transform.transforms[0] = transforms.RandomCrop(
-                args.input_size, padding=4)
+            transform.transforms[0] = transforms.RandomCrop(args.input_size, padding=4)
         return transform
 
     t = []
@@ -215,7 +251,9 @@ def build_transform(is_train, args):
                 args.crop_pct = 1.0
         size = int(args.input_size / args.crop_pct)
         t.append(
-            transforms.Resize(size, interpolation=3),  # to maintain same ratio w.r.t. 224 images
+            transforms.Resize(
+                size, interpolation=3
+            ),  # to maintain same ratio w.r.t. 224 images
         )
         t.append(transforms.CenterCrop(args.input_size))
 

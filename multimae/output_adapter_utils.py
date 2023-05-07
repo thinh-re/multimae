@@ -30,16 +30,23 @@ class ConvNeXtBlock(nn.Module):
     Code from: https://github.com/facebookresearch/ConvNeXt/blob/main/models/convnext.py
     """
 
-    def __init__(self, dim, drop_path=0., layer_scale_init_value=0.):
+    def __init__(self, dim, drop_path=0.0, layer_scale_init_value=0.0):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)  # depthwise conv
+        self.dwconv = nn.Conv2d(
+            dim, dim, kernel_size=7, padding=3, groups=dim
+        )  # depthwise conv
         self.norm = nn.LayerNorm(dim, eps=1e-6)
-        self.pwconv1 = nn.Linear(dim, 4 * dim)  # pointwise/1x1 convs, implemented with linear layers
+        self.pwconv1 = nn.Linear(
+            dim, 4 * dim
+        )  # pointwise/1x1 convs, implemented with linear layers
         self.act = nn.GELU()
         self.pwconv2 = nn.Linear(4 * dim, dim)
-        self.gamma = nn.Parameter(layer_scale_init_value * torch.ones((dim)),
-                                  requires_grad=True) if layer_scale_init_value > 0 else None
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.gamma = (
+            nn.Parameter(layer_scale_init_value * torch.ones((dim)), requires_grad=True)
+            if layer_scale_init_value > 0
+            else None
+        )
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
     def forward(self, x):
         input = x
@@ -122,6 +129,7 @@ class ResidualConvUnit_custom(nn.Module):
 
         return self.skip_add.add(out, x)
 
+
 def make_scratch(in_shape, out_shape, groups=1, expand=False):
     scratch = nn.Module()
 
@@ -172,14 +180,17 @@ def make_scratch(in_shape, out_shape, groups=1, expand=False):
         groups=groups,
     )
 
-    scratch.layer_rn = nn.ModuleList([
-        scratch.layer1_rn,
-        scratch.layer2_rn,
-        scratch.layer3_rn,
-        scratch.layer4_rn,
-    ])
+    scratch.layer_rn = nn.ModuleList(
+        [
+            scratch.layer1_rn,
+            scratch.layer2_rn,
+            scratch.layer3_rn,
+            scratch.layer4_rn,
+        ]
+    )
 
     return scratch
+
 
 class FeatureFusionBlock_custom(nn.Module):
     """Feature fusion block."""
@@ -246,6 +257,7 @@ class FeatureFusionBlock_custom(nn.Module):
 
         return output
 
+
 def make_fusion_block(features, use_bn):
     return FeatureFusionBlock_custom(
         features,
@@ -255,6 +267,7 @@ def make_fusion_block(features, use_bn):
         expand=False,
         align_corners=True,
     )
+
 
 class Interpolate(nn.Module):
     """Interpolation module."""

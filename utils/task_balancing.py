@@ -9,8 +9,7 @@ import torch.nn as nn
 
 
 class NoWeightingStrategy(nn.Module):
-    """No weighting strategy
-    """
+    """No weighting strategy"""
 
     def __init__(self, **kwargs):
         super(NoWeightingStrategy, self).__init__()
@@ -18,9 +17,9 @@ class NoWeightingStrategy(nn.Module):
     def forward(self, task_losses):
         return task_losses
 
+
 class UncertaintyWeightingStrategy(nn.Module):
-    """Uncertainty weighting strategy
-    """
+    """Uncertainty weighting strategy"""
 
     def __init__(self, tasks):
         super(UncertaintyWeightingStrategy, self).__init__()
@@ -30,7 +29,7 @@ class UncertaintyWeightingStrategy(nn.Module):
 
     def forward(self, task_losses):
         losses_tensor = torch.stack(list(task_losses.values()))
-        non_zero_losses_mask = (losses_tensor != 0.0)
+        non_zero_losses_mask = losses_tensor != 0.0
 
         # calculate weighted losses
         losses_tensor = torch.exp(-self.log_vars) * losses_tensor + self.log_vars

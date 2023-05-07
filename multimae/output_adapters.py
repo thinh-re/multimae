@@ -24,10 +24,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, repeat
 
-from .multimae_utils import (Block, CrossAttention, Mlp,
-                             build_2d_sincos_posemb, pair, trunc_normal_)
-from .output_adapter_utils import (ConvNeXtBlock, Interpolate,
-                                   make_fusion_block, make_scratch)
+from .multimae_utils import (
+    Block,
+    CrossAttention,
+    Mlp,
+    build_2d_sincos_posemb,
+    pair,
+    trunc_normal_,
+)
+from .output_adapter_utils import (
+    ConvNeXtBlock,
+    Interpolate,
+    make_fusion_block,
+    make_scratch,
+)
 
 
 class SpatialOutputAdapter(nn.Module):
@@ -97,7 +107,11 @@ class SpatialOutputAdapter(nn.Module):
 
         if context_tasks is not None:
             self.task_embeddings = nn.ParameterDict(
-                {task: nn.Parameter(torch.zeros(1, 1, self.dim_tokens)) for task in context_tasks})
+                {
+                    task: nn.Parameter(torch.zeros(1, 1, self.dim_tokens))
+                    for task in context_tasks
+                }
+            )
             for embedding in self.task_embeddings.values():
                 trunc_normal_(embedding, std=0.02)
 
@@ -107,17 +121,25 @@ class SpatialOutputAdapter(nn.Module):
         h_posemb = self.image_size[0] // (self.stride_level * self.P_H)
         w_posemb = self.image_size[1] // (self.stride_level * self.P_W)
         if not self.learnable_pos_emb:
-            self.pos_emb = build_2d_sincos_posemb(h=h_posemb, w=w_posemb, embed_dim=self.dim_tokens)
+            self.pos_emb = build_2d_sincos_posemb(
+                h=h_posemb, w=w_posemb, embed_dim=self.dim_tokens
+            )
             self.pos_emb = nn.Parameter(self.pos_emb, requires_grad=False)
         else:
-            self.pos_emb = nn.Parameter(torch.zeros(1, h_posemb, w_posemb, self.dim_tokens))
+            self.pos_emb = nn.Parameter(
+                torch.zeros(1, h_posemb, w_posemb, self.dim_tokens)
+            )
             trunc_normal_(self.pos_emb, std=0.02)
 
         # One cross attention layer followed by MLP block, an optional transformer, and an output projection
         if self.use_xattn:
             self.decoder = CrossAttention(
-                dim=self.dim_tokens, num_heads=num_heads, qkv_bias=qkv_bias,
-                attn_drop=attn_drop_rate, proj_drop=drop_rate)
+                dim=self.dim_tokens,
+                num_heads=num_heads,
+                qkv_bias=qkv_bias,
+                attn_drop=attn_drop_rate,
+                proj_drop=drop_rate,
+            )
             self.context_norm = norm_layer(self.dim_tokens)
             self.query_norm = norm_layer(self.dim_tokens)
             self.out_norm = norm_layer(self.dim_tokens)
@@ -127,12 +149,24 @@ class SpatialOutputAdapter(nn.Module):
 
         # Optional full self-attention transformer layers
         if depth > 0:
-            dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
-            self.decoder_transformer = nn.Sequential(*[
-                Block(dim=self.dim_tokens, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, drop=drop_rate,
-                      attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer)
-                for i in range(depth)
-            ])
+            dpr = [
+                x.item() for x in torch.linspace(0, drop_path_rate, depth)
+            ]  # stochastic depth decay rule
+            self.decoder_transformer = nn.Sequential(
+                *[
+                    Block(
+                        dim=self.dim_tokens,
+                        num_heads=num_heads,
+                        mlp_ratio=mlp_ratio,
+                        qkv_bias=qkv_bias,
+                        drop=drop_rate,
+                        attn_drop=attn_drop_rate,
+                        drop_path=dpr[i],
+                        norm_layer=norm_layer,
+                    )
+                    for i in range(depth)
+                ]
+            )
         else:
             self.decoder_transformer = nn.Identity()
 
@@ -143,12 +177,12 @@ class SpatialOutputAdapter(nn.Module):
             self.init(dim_tokens_enc=dim_tokens_enc)
 
     def init(self, dim_tokens_enc: int = 768):
-        '''
+        """
         Initialize parts of decoder that are dependent on dimension of encoder tokens.
         Should be called when setting up MultiMAE.
 
         :param dim_tokens_enc: Dimension of tokens coming from encoder
-        '''
+        """
         self.dim_tokens_enc = dim_tokens_enc
 
         # Projection of encoder tokens to the patch dimension
@@ -156,10 +190,11 @@ class SpatialOutputAdapter(nn.Module):
 
     @torch.jit.ignore
     def no_weight_decay(self):
-        return {'pos_emb', 'mask_token', 'task_embeddings'}
+        return {"pos_emb", "mask_token", "task_embeddings"}
 
     def generate_context_embeddings(
-        self, input_info,
+        self,
+        input_info,
         bs: int,
         size: Tuple[int, int],
         device: Optional[torch.device] = None,
@@ -167,14 +202,23 @@ class SpatialOutputAdapter(nn.Module):
         context_embeddings = []
         for task, info in input_info["tasks"].items():
             if self.task_embeddings is not None and task in self.task_embeddings:
-                task_emb = repeat(self.task_embeddings[task], '() () d -> b n d', b=bs, n=info['num_tokens'])
+                task_emb = repeat(
+                    self.task_embeddings[task],
+                    "() () d -> b n d",
+                    b=bs,
+                    n=info["num_tokens"],
+                )
             else:
-                task_emb = torch.zeros((bs, info['num_tokens'], self.dim_tokens), device=device)
+                task_emb = torch.zeros(
+                    (bs, info["num_tokens"], self.dim_tokens), device=device
+                )
 
-            if info['has_2d_posemb']:
-                pos_emb = F.interpolate(self.pos_emb, size=size, mode='bilinear', align_corners=False)
-                pos_emb = rearrange(pos_emb, 'b d nh nw -> b (nh nw) d')
-                assert info['num_tokens'] == pos_emb.shape[1]
+            if info["has_2d_posemb"]:
+                pos_emb = F.interpolate(
+                    self.pos_emb, size=size, mode="bilinear", align_corners=False
+                )
+                pos_emb = rearrange(pos_emb, "b d nh nw -> b (nh nw) d")
+                assert info["num_tokens"] == pos_emb.shape[1]
                 task_emb = task_emb + pos_emb
 
             context_embeddings.append(task_emb)
@@ -183,54 +227,83 @@ class SpatialOutputAdapter(nn.Module):
 
         return context_embeddings
 
-    def get_queries_and_context(self, context_tokens, input_info, ids_keep, ids_restore):
+    def get_queries_and_context(
+        self, context_tokens, input_info, ids_keep, ids_restore
+    ):
         B = context_tokens.shape[0]
-        H, W = input_info['image_size']
+        H, W = input_info["image_size"]
         # Number of patches in height and width
         N_H = H // (self.stride_level * self.P_H)
         N_W = W // (self.stride_level * self.P_W)
 
-        if 'num_global_tokens' in input_info:
-            context_tokens_without_global = context_tokens[:, :-input_info['num_global_tokens']]
+        if "num_global_tokens" in input_info:
+            context_tokens_without_global = context_tokens[
+                :, : -input_info["num_global_tokens"]
+            ]
         else:
             context_tokens_without_global = context_tokens
 
         # Add mask tokens
-        mask_tokens = repeat(self.mask_token, '() () d -> b n d', b=B,
-                             n=input_info['num_task_tokens'] - context_tokens_without_global.shape[1])
-        context_with_mask = torch.cat([context_tokens_without_global, mask_tokens], dim=1)
+        mask_tokens = repeat(
+            self.mask_token,
+            "() () d -> b n d",
+            b=B,
+            n=input_info["num_task_tokens"] - context_tokens_without_global.shape[1],
+        )
+        context_with_mask = torch.cat(
+            [context_tokens_without_global, mask_tokens], dim=1
+        )
 
         # Unshuffle context_with_mask
-        context_with_mask = torch.gather(context_with_mask, dim=1,
-                                         index=ids_restore.unsqueeze(-1).repeat(1, 1, context_with_mask.shape[2]))
+        context_with_mask = torch.gather(
+            context_with_mask,
+            dim=1,
+            index=ids_restore.unsqueeze(-1).repeat(1, 1, context_with_mask.shape[2]),
+        )
 
         # Generate context_emb and add them to context
-        context_emb = self.generate_context_embeddings(input_info=input_info, bs=B, size=(N_H, N_W),
-                                                       device=context_tokens.device)
+        context_emb = self.generate_context_embeddings(
+            input_info=input_info, bs=B, size=(N_H, N_W), device=context_tokens.device
+        )
         context_with_mask = context_with_mask + context_emb
 
         # Generate queries
-        if self.use_task_queries and self.task in input_info['tasks']:
-            start_idx = input_info['tasks'][self.task]['start_idx']
-            end_idx = input_info['tasks'][self.task]['end_idx']
+        if self.use_task_queries and self.task in input_info["tasks"]:
+            start_idx = input_info["tasks"][self.task]["start_idx"]
+            end_idx = input_info["tasks"][self.task]["end_idx"]
             queries = context_with_mask[:, start_idx:end_idx]
         else:
-            queries = repeat(self.mask_token, '() () d -> b n d', b=B, n=N_H * N_W)
-            queries_pos_emb = F.interpolate(self.pos_emb, size=(N_H, N_W), mode='bilinear', align_corners=False)
-            queries_pos_emb = rearrange(queries_pos_emb, 'b d nh nw -> b (nh nw) d')
+            queries = repeat(self.mask_token, "() () d -> b n d", b=B, n=N_H * N_W)
+            queries_pos_emb = F.interpolate(
+                self.pos_emb, size=(N_H, N_W), mode="bilinear", align_corners=False
+            )
+            queries_pos_emb = rearrange(queries_pos_emb, "b d nh nw -> b (nh nw) d")
             queries = queries + queries_pos_emb
             if self.task_embeddings is not None and self.task in self.task_embeddings:
-                queries_task_emb = repeat(self.task_embeddings[self.task], '() () d -> b n d', b=B, n=N_H * N_W)
+                queries_task_emb = repeat(
+                    self.task_embeddings[self.task],
+                    "() () d -> b n d",
+                    b=B,
+                    n=N_H * N_W,
+                )
                 queries = queries + queries_task_emb
 
         # Unshuffle context and keep only initial context (yes, again)
-        context_tokens_without_global = torch.gather(context_with_mask, dim=1,
-                                                     index=ids_keep.unsqueeze(-1).repeat(1, 1, context_with_mask.shape[2]))
+        context_tokens_without_global = torch.gather(
+            context_with_mask,
+            dim=1,
+            index=ids_keep.unsqueeze(-1).repeat(1, 1, context_with_mask.shape[2]),
+        )
 
         # Add back global tokens
-        if 'num_global_tokens' in input_info:
+        if "num_global_tokens" in input_info:
             context_tokens = torch.cat(
-                [context_tokens_without_global, context_tokens[:, -input_info['num_global_tokens']:]], dim=1)
+                [
+                    context_tokens_without_global,
+                    context_tokens[:, -input_info["num_global_tokens"] :],
+                ],
+                dim=1,
+            )
         else:
             context_tokens = context_tokens_without_global
 
@@ -252,8 +325,10 @@ class SpatialOutputAdapter(nn.Module):
         :param ids_keep: IDs of unmasked tokens (tokens given to the encoder)
         :param ids_restore: IDs to unshuffle tokens
         """
-        assert self.dim_tokens_enc is not None, 'Need to call init(dim_tokens_enc) function first'
-        H, W = input_info['image_size']
+        assert (
+            self.dim_tokens_enc is not None
+        ), "Need to call init(dim_tokens_enc) function first"
+        H, W = input_info["image_size"]
         # Number of patches in height and width
         N_H = H // (self.stride_level * self.P_H)
         N_W = W // (self.stride_level * self.P_W)
@@ -262,11 +337,15 @@ class SpatialOutputAdapter(nn.Module):
         context_tokens = self.proj_context(encoder_tokens)
 
         # Get queries and context
-        queries, context_tokens = self.get_queries_and_context(context_tokens, input_info, ids_keep, ids_restore)
+        queries, context_tokens = self.get_queries_and_context(
+            context_tokens, input_info, ids_keep, ids_restore
+        )
 
         # Perform cross attention of queries to context tokens, followed by an MLP
         if self.use_xattn:
-            x = self.decoder(self.query_norm(queries), self.context_norm(context_tokens))
+            x = self.decoder(
+                self.query_norm(queries), self.context_norm(context_tokens)
+            )
             x = x + self.mlp(self.out_norm(x))
         else:
             x = queries
@@ -279,8 +358,13 @@ class SpatialOutputAdapter(nn.Module):
 
         # Reshape sequence of patches into image
         x = rearrange(
-            x, 'b (nh nw) (c ph pw) -> b c (nh ph) (nw pw)',
-            nh=N_H, nw=N_W, ph=self.P_H, pw=self.P_W, c=self.num_channels
+            x,
+            "b (nh nw) (c ph pw) -> b c (nh ph) (nw pw)",
+            nh=N_H,
+            nw=N_W,
+            ph=self.P_H,
+            pw=self.P_W,
+            c=self.num_channels,
         )
 
         return x
@@ -298,12 +382,14 @@ class LinearOutputAdapter(nn.Module):
     :param init_scale: Initialization scale for linear classification head
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 dim_tokens_enc: Optional[int] = None,
-                 use_mean_pooling: bool = True,
-                 norm_layer: nn.Module = partial(nn.LayerNorm, eps=1e-6),
-                 init_scale: float = 1.0):
+    def __init__(
+        self,
+        num_classes: int,
+        dim_tokens_enc: Optional[int] = None,
+        use_mean_pooling: bool = True,
+        norm_layer: nn.Module = partial(nn.LayerNorm, eps=1e-6),
+        init_scale: float = 1.0,
+    ):
         super().__init__()
         self.num_classes = num_classes
         self.dim_tokens_enc = dim_tokens_enc
@@ -324,7 +410,11 @@ class LinearOutputAdapter(nn.Module):
         self.dim_tokens_enc = dim_tokens_enc
 
         self.norm = self.norm_layer(self.dim_tokens_enc)
-        self.head = nn.Linear(dim_tokens_enc, self.num_classes) if self.num_classes > 0 else nn.Identity()
+        self.head = (
+            nn.Linear(dim_tokens_enc, self.num_classes)
+            if self.num_classes > 0
+            else nn.Identity()
+        )
 
         self.apply(self._init_weights)
         self.head.weight.data.mul_(self.init_scale)
@@ -332,7 +422,7 @@ class LinearOutputAdapter(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -342,13 +432,11 @@ class LinearOutputAdapter(nn.Module):
     def get_classifier(self):
         return self.head
 
-    def reset_classifier(self, num_classes, global_pool=''):
+    def reset_classifier(self, num_classes, global_pool=""):
         self.num_classes = num_classes
         self.init(dim_tokens_enc=self.dim_tokens_enc)
 
-    def forward(self,
-                encoder_tokens: torch.Tensor,
-                **kwargs):
+    def forward(self, encoder_tokens: torch.Tensor, **kwargs):
 
         if self.use_mean_pooling:
             x = encoder_tokens.mean(1)
@@ -390,7 +478,7 @@ class SegmenterMaskTransformerAdapter(nn.Module):
         drop_rate=0.0,
         attn_drop_rate=0.0,
         qkv_bias=True,
-        main_tasks: str = ('rgb',),
+        main_tasks: str = ("rgb",),
         patch_size: int = 16,
         norm_layer: nn.Module = partial(nn.LayerNorm, eps=1e-6),
         **kwargs,
@@ -408,11 +496,21 @@ class SegmenterMaskTransformerAdapter(nn.Module):
         self.classes_proj = nn.Linear(embed_dim, embed_dim, bias=False)
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
-        self.blocks = nn.ModuleList([
-            Block(dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, drop=drop_rate,
-                  attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer)
-            for i in range(depth)
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                Block(
+                    dim=embed_dim,
+                    num_heads=num_heads,
+                    mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    drop=drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[i],
+                    norm_layer=norm_layer,
+                )
+                for i in range(depth)
+            ]
+        )
 
         self.decoder_norm = norm_layer(embed_dim)
         self.mask_norm = norm_layer(num_classes)
@@ -433,7 +531,7 @@ class SegmenterMaskTransformerAdapter(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -444,15 +542,15 @@ class SegmenterMaskTransformerAdapter(nn.Module):
         # Adapt tokens
         x = []
         for task in self.main_tasks:
-            start_idx = input_info['tasks'][task]['start_idx']
-            end_idx = input_info['tasks'][task]['end_idx']
+            start_idx = input_info["tasks"][task]["start_idx"]
+            end_idx = input_info["tasks"][task]["end_idx"]
             x.append(encoder_tokens[:, start_idx:end_idx])
 
         x = torch.cat(x, dim=-1)
         return x
 
     def forward(self, encoder_tokens: torch.Tensor, input_info: Dict):
-        H, W = input_info['image_size']
+        H, W = input_info["image_size"]
         N_H, N_W = H // self.patch_size, W // self.patch_size
 
         x = self.adapt_tokens(encoder_tokens, input_info)
@@ -466,8 +564,8 @@ class SegmenterMaskTransformerAdapter(nn.Module):
 
         x = self.decoder_norm(x)
 
-        patches = self.patch_proj(x[:, :-self.num_classes])
-        cls_seg_feat = self.classes_proj(x[:, -self.num_classes:])
+        patches = self.patch_proj(x[:, : -self.num_classes])
+        cls_seg_feat = self.classes_proj(x[:, -self.num_classes :])
 
         patches = F.normalize(patches, dim=2, p=2)
         cls_seg_feat = F.normalize(cls_seg_feat, dim=2, p=2)
@@ -497,15 +595,15 @@ class ConvNeXtAdapter(nn.Module):
     """
 
     def __init__(
-            self,
-            num_classes,
-            embed_dim: int = 6144,
-            preds_per_patch: int = 16,
-            main_tasks: Iterable[str] = ('rgb',),
-            patch_size: int = 16,
-            depth: int = 4,
-            interpolate_mode: str = 'bilinear',
-            **kwargs,
+        self,
+        num_classes,
+        embed_dim: int = 6144,
+        preds_per_patch: int = 16,
+        main_tasks: Iterable[str] = ("rgb",),
+        patch_size: int = 16,
+        depth: int = 4,
+        interpolate_mode: str = "bilinear",
+        **kwargs,
     ):
         super().__init__()
         self.main_tasks = main_tasks
@@ -516,10 +614,9 @@ class ConvNeXtAdapter(nn.Module):
         self.num_classes = num_classes
         self.interpolate_mode = interpolate_mode
 
-        self.blocks = nn.Sequential(*[
-            ConvNeXtBlock(dim=self.class_dim)
-            for _ in range(depth)
-        ])
+        self.blocks = nn.Sequential(
+            *[ConvNeXtBlock(dim=self.class_dim) for _ in range(depth)]
+        )
         self.final_layer = nn.Conv2d(self.class_dim, self.num_classes, 1)
         self.apply(self._init_weights)
 
@@ -538,7 +635,7 @@ class ConvNeXtAdapter(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
@@ -549,25 +646,35 @@ class ConvNeXtAdapter(nn.Module):
         # Adapt tokens
         x = []
         for task in self.main_tasks:
-            start_idx = input_info['tasks'][task]['start_idx']
-            end_idx = input_info['tasks'][task]['end_idx']
+            start_idx = input_info["tasks"][task]["start_idx"]
+            end_idx = input_info["tasks"][task]["end_idx"]
             x.append(encoder_tokens[:, start_idx:end_idx])
 
         x = torch.cat(x, dim=-1)
         return x
 
     def forward(self, encoder_tokens: torch.Tensor, input_info: Dict):
-        H, W = input_info['image_size']
+        H, W = input_info["image_size"]
         N_H, N_W = H // self.patch_size, W // self.patch_size
 
         x = self.adapt_tokens(encoder_tokens, input_info)
 
         x = self.proj_dec(x)
-        x = rearrange(x, "b n (p c) -> b (n p) c", n=N_H * N_W, p=self.preds_per_patch, c=self.class_dim)
-        x = rearrange(x, "b (nh nw ph pw) c -> b c (nh ph) (nw pw)",
-                      nh=N_H, nw=N_W,
-                      ph=int(self.preds_per_patch ** 0.5),
-                      pw=int(self.preds_per_patch ** 0.5))
+        x = rearrange(
+            x,
+            "b n (p c) -> b (n p) c",
+            n=N_H * N_W,
+            p=self.preds_per_patch,
+            c=self.class_dim,
+        )
+        x = rearrange(
+            x,
+            "b (nh nw ph pw) c -> b c (nh ph) (nw pw)",
+            nh=N_H,
+            nw=N_W,
+            ph=int(self.preds_per_patch**0.5),
+            pw=int(self.preds_per_patch**0.5),
+        )
         x = self.blocks(x)
         x = self.final_layer(x)
 
@@ -592,18 +699,20 @@ class DPTOutputAdapter(nn.Module):
     :param dim_tokens_enc:  Dimension of tokens coming from encoder
     """
 
-    def __init__(self,
-                 num_classes: int = 3,
-                 stride_level: int = 1,
-                 patch_size: Union[int, Tuple[int, int]] = 16,
-                 main_tasks: Iterable[str] = ('rgb',),
-                 hooks: List[int] = [2, 5, 8, 11],
-                 layer_dims: List[int] = [96, 192, 384, 768],
-                 feature_dim: int = 256,
-                 use_bn: bool = False,
-                 dim_tokens_enc: Optional[int] = None,
-                 head_type: str = 'regression',
-                 **kwargs):
+    def __init__(
+        self,
+        num_classes: int = 3,
+        stride_level: int = 1,
+        patch_size: Union[int, Tuple[int, int]] = 16,
+        main_tasks: Iterable[str] = ("rgb",),
+        hooks: List[int] = [2, 5, 8, 11],
+        layer_dims: List[int] = [96, 192, 384, 768],
+        feature_dim: int = 256,
+        use_bn: bool = False,
+        dim_tokens_enc: Optional[int] = None,
+        head_type: str = "regression",
+        **kwargs,
+    ):
         super().__init__()
         self.num_channels = num_classes
         self.stride_level = stride_level
@@ -612,7 +721,11 @@ class DPTOutputAdapter(nn.Module):
         self.hooks = hooks
         self.layer_dims = layer_dims
         self.feature_dim = feature_dim
-        self.dim_tokens_enc = dim_tokens_enc * len(self.main_tasks) if dim_tokens_enc is not None else None
+        self.dim_tokens_enc = (
+            dim_tokens_enc * len(self.main_tasks)
+            if dim_tokens_enc is not None
+            else None
+        )
         self.head_type = head_type
 
         # Actual patch height and width, taking into account stride of input
@@ -626,19 +739,23 @@ class DPTOutputAdapter(nn.Module):
         self.scratch.refinenet3 = make_fusion_block(feature_dim, use_bn)
         self.scratch.refinenet4 = make_fusion_block(feature_dim, use_bn)
 
-        if self.head_type == 'regression':
+        if self.head_type == "regression":
             # The "DPTDepthModel" head
             self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, feature_dim // 2, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(
+                    feature_dim, feature_dim // 2, kernel_size=3, stride=1, padding=1
+                ),
                 Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
                 nn.Conv2d(feature_dim // 2, 32, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(True),
-                nn.Conv2d(32, self.num_channels, kernel_size=1, stride=1, padding=0)
+                nn.Conv2d(32, self.num_channels, kernel_size=1, stride=1, padding=0),
             )
-        elif self.head_type == 'semseg':
+        elif self.head_type == "semseg":
             # The "DPTSegmentationModel" head
             self.head = nn.Sequential(
-                nn.Conv2d(feature_dim, feature_dim, kernel_size=3, padding=1, bias=False),
+                nn.Conv2d(
+                    feature_dim, feature_dim, kernel_size=3, padding=1, bias=False
+                ),
                 nn.BatchNorm2d(feature_dim) if use_bn else nn.Identity(),
                 nn.ReLU(True),
                 nn.Dropout(0.1, False),
@@ -666,35 +783,49 @@ class DPTOutputAdapter(nn.Module):
             nn.Conv2d(
                 in_channels=self.dim_tokens_enc,
                 out_channels=self.layer_dims[0],
-                kernel_size=1, stride=1, padding=0,
+                kernel_size=1,
+                stride=1,
+                padding=0,
             ),
             nn.ConvTranspose2d(
                 in_channels=self.layer_dims[0],
                 out_channels=self.layer_dims[0],
-                kernel_size=4, stride=4, padding=0,
-                bias=True, dilation=1, groups=1,
-            )
+                kernel_size=4,
+                stride=4,
+                padding=0,
+                bias=True,
+                dilation=1,
+                groups=1,
+            ),
         )
 
         self.act_2_postprocess = nn.Sequential(
             nn.Conv2d(
                 in_channels=self.dim_tokens_enc,
                 out_channels=self.layer_dims[1],
-                kernel_size=1, stride=1, padding=0,
+                kernel_size=1,
+                stride=1,
+                padding=0,
             ),
             nn.ConvTranspose2d(
                 in_channels=self.layer_dims[1],
                 out_channels=self.layer_dims[1],
-                kernel_size=2, stride=2, padding=0,
-                bias=True, dilation=1, groups=1,
-            )
+                kernel_size=2,
+                stride=2,
+                padding=0,
+                bias=True,
+                dilation=1,
+                groups=1,
+            ),
         )
 
         self.act_3_postprocess = nn.Sequential(
             nn.Conv2d(
                 in_channels=self.dim_tokens_enc,
                 out_channels=self.layer_dims[2],
-                kernel_size=1, stride=1, padding=0,
+                kernel_size=1,
+                stride=1,
+                padding=0,
             )
         )
 
@@ -702,36 +833,44 @@ class DPTOutputAdapter(nn.Module):
             nn.Conv2d(
                 in_channels=self.dim_tokens_enc,
                 out_channels=self.layer_dims[3],
-                kernel_size=1, stride=1, padding=0,
+                kernel_size=1,
+                stride=1,
+                padding=0,
             ),
             nn.Conv2d(
                 in_channels=self.layer_dims[3],
                 out_channels=self.layer_dims[3],
-                kernel_size=3, stride=2, padding=1,
-            )
+                kernel_size=3,
+                stride=2,
+                padding=1,
+            ),
         )
 
-        self.act_postprocess = nn.ModuleList([
-            self.act_1_postprocess,
-            self.act_2_postprocess,
-            self.act_3_postprocess,
-            self.act_4_postprocess
-        ])
+        self.act_postprocess = nn.ModuleList(
+            [
+                self.act_1_postprocess,
+                self.act_2_postprocess,
+                self.act_3_postprocess,
+                self.act_4_postprocess,
+            ]
+        )
 
     def adapt_tokens(self, encoder_tokens, input_info):
         # Adapt tokens
         x = []
         for task in self.main_tasks:
-            start_idx = input_info['tasks'][task]['start_idx']
-            end_idx = input_info['tasks'][task]['end_idx']
+            start_idx = input_info["tasks"][task]["start_idx"]
+            end_idx = input_info["tasks"][task]["end_idx"]
             x.append(encoder_tokens[:, start_idx:end_idx])
 
         x = torch.cat(x, dim=-1)
         return x
 
     def forward(self, encoder_tokens: List[torch.Tensor], input_info: Dict):
-        assert self.dim_tokens_enc is not None, 'Need to call init(dim_tokens_enc) function first'
-        H, W = input_info['image_size']
+        assert (
+            self.dim_tokens_enc is not None
+        ), "Need to call init(dim_tokens_enc) function first"
+        H, W = input_info["image_size"]
         # Number of patches in height and width
         N_H = H // (self.stride_level * self.P_H)
         N_W = W // (self.stride_level * self.P_W)
@@ -743,7 +882,9 @@ class DPTOutputAdapter(nn.Module):
         layers = [self.adapt_tokens(l, input_info) for l in layers]
 
         # Reshape tokens to spatial representation
-        layers = [rearrange(l, 'b (nh nw) c -> b c nh nw', nh=N_H, nw=N_W) for l in layers]
+        layers = [
+            rearrange(l, "b (nh nw) c -> b c nh nw", nh=N_H, nw=N_W) for l in layers
+        ]
 
         # Postprocess activations
         layers = [self.act_postprocess[idx](l) for idx, l in enumerate(layers)]

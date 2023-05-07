@@ -25,9 +25,11 @@ class RandomMaskingGenerator:
         return repr_str
 
     def __call__(self):
-        mask = np.hstack([
-            np.zeros(self.num_patches - self.num_mask),
-            np.ones(self.num_mask),
-        ])
+        mask = np.hstack(
+            [
+                np.zeros(self.num_patches - self.num_mask),
+                np.ones(self.num_mask),
+            ]
+        )
         np.random.shuffle(mask)
         return mask  # [196]

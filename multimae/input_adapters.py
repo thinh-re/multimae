@@ -38,14 +38,17 @@ class PatchedInputAdapter(nn.Module):
     :param learnable_pos_emb: Set to True to learn positional embeddings instead
     :param image_size: Default image size. Used to initialize size of positional embeddings.
     """
-    def __init__(self,
-                 num_channels: int,
-                 stride_level: int,
-                 patch_size_full: Union[int, Tuple[int,int]],
-                 dim_tokens: Optional[int] = None,
-                 sincos_pos_emb: bool = True,
-                 learnable_pos_emb: bool = False,
-                 image_size: Union[int, Tuple[int]] = 224):
+
+    def __init__(
+        self,
+        num_channels: int,
+        stride_level: int,
+        patch_size_full: Union[int, Tuple[int, int]],
+        dim_tokens: Optional[int] = None,
+        sincos_pos_emb: bool = True,
+        learnable_pos_emb: bool = False,
+        image_size: Union[int, Tuple[int]] = 224,
+    ):
 
         super().__init__()
         self.num_channels = num_channels
@@ -55,7 +58,9 @@ class PatchedInputAdapter(nn.Module):
         self.sincos_pos_emb = sincos_pos_emb
         self.learnable_pos_emb = learnable_pos_emb
         self.image_size = pair(image_size)
-        self.num_patches = (self.image_size[0] // patch_size_full) * (self.image_size[1] // patch_size_full)
+        self.num_patches = (self.image_size[0] // patch_size_full) * (
+            self.image_size[1] // patch_size_full
+        )
 
         # Actual patch height and width, taking into account stride of input
         self.P_H = max(1, self.patch_size_full[0] // stride_level)
@@ -78,21 +83,29 @@ class PatchedInputAdapter(nn.Module):
         h_posemb = self.image_size[0] // (self.stride_level * self.P_H)
         w_posemb = self.image_size[1] // (self.stride_level * self.P_W)
         if self.sincos_pos_emb:
-            self.pos_emb = build_2d_sincos_posemb(h=h_posemb, w=w_posemb, embed_dim=self.dim_tokens)
-            self.pos_emb = nn.Parameter(self.pos_emb, requires_grad=self.learnable_pos_emb)
+            self.pos_emb = build_2d_sincos_posemb(
+                h=h_posemb, w=w_posemb, embed_dim=self.dim_tokens
+            )
+            self.pos_emb = nn.Parameter(
+                self.pos_emb, requires_grad=self.learnable_pos_emb
+            )
         else:
-            self.pos_emb = nn.Parameter(torch.zeros(1, self.dim_tokens, h_posemb, w_posemb))
+            self.pos_emb = nn.Parameter(
+                torch.zeros(1, self.dim_tokens, h_posemb, w_posemb)
+            )
             trunc_normal_(self.pos_emb, std=0.02)
 
         # Image -> tokens projection
         self.proj = nn.Conv2d(
-            in_channels=self.num_channels, out_channels=self.dim_tokens,
-            kernel_size=(self.P_H, self.P_W), stride=(self.P_H, self.P_W)
+            in_channels=self.num_channels,
+            out_channels=self.dim_tokens,
+            kernel_size=(self.P_H, self.P_W),
+            stride=(self.P_H, self.P_W),
         )
 
     @torch.jit.ignore
     def no_weight_decay(self):
-        return {'pos_emb'}
+        return {"pos_emb"}
 
     def forward(self, x):
         """
@@ -102,16 +115,22 @@ class PatchedInputAdapter(nn.Module):
         :param x: Input image tensor
         """
         B, C, H, W = x.shape
-        assert self.dim_tokens is not None, 'Need to call init(dim_tokens) function first'
-        assert (H % self.P_H == 0) and (W % self.P_W == 0), f'Image sizes {H}x{W} must be divisible by patch sizes {self.P_H}x{self.P_W}'
-        N_H, N_W = H // self.P_H, W // self.P_W # Number of patches in height and width
+        assert (
+            self.dim_tokens is not None
+        ), "Need to call init(dim_tokens) function first"
+        assert (H % self.P_H == 0) and (
+            W % self.P_W == 0
+        ), f"Image sizes {H}x{W} must be divisible by patch sizes {self.P_H}x{self.P_W}"
+        N_H, N_W = H // self.P_H, W // self.P_W  # Number of patches in height and width
 
         # Create patches [B, C, H, W] -> [B, (H*W), C]
-        x_patch = rearrange(self.proj(x), 'b d nh nw -> b (nh nw) d')
+        x_patch = rearrange(self.proj(x), "b d nh nw -> b (nh nw) d")
 
         # Create positional embedding
-        x_pos_emb = F.interpolate(self.pos_emb, size=(N_H, N_W), mode='bicubic', align_corners=False)
-        x_pos_emb = rearrange(x_pos_emb, 'b d nh nw -> b (nh nw) d')
+        x_pos_emb = F.interpolate(
+            self.pos_emb, size=(N_H, N_W), mode="bicubic", align_corners=False
+        )
+        x_pos_emb = rearrange(x_pos_emb, "b d nh nw -> b (nh nw) d")
 
         # Add patches and positional embeddings
         x = x_patch + x_pos_emb
@@ -138,18 +157,19 @@ class SemSegInputAdapter(nn.Module):
     :param emb_padding_idx: Padding index (e.g. image border), default is None
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 stride_level: int,
-                 patch_size_full: Union[int, Tuple[int, int]],
-                 dim_tokens: Optional[int] = None,
-                 sincos_pos_emb: int = True,
-                 learnable_pos_emb: int = False,
-                 image_size: Union[int, Tuple[int]] = 224,
-                 dim_class_emb: int = 64,
-                 interpolate_class_emb: bool = False,
-                 emb_padding_idx: int = None
-                 ):
+    def __init__(
+        self,
+        num_classes: int,
+        stride_level: int,
+        patch_size_full: Union[int, Tuple[int, int]],
+        dim_tokens: Optional[int] = None,
+        sincos_pos_emb: int = True,
+        learnable_pos_emb: int = False,
+        image_size: Union[int, Tuple[int]] = 224,
+        dim_class_emb: int = 64,
+        interpolate_class_emb: bool = False,
+        emb_padding_idx: int = None,
+    ):
         super().__init__()
         self.num_classes = num_classes
         self.stride_level = stride_level
@@ -172,12 +192,12 @@ class SemSegInputAdapter(nn.Module):
             self.init(dim_tokens=dim_tokens)
 
     def init(self, dim_tokens: int = 768):
-        '''
+        """
         Initialize parts of encoder that are dependent on dimension of tokens.
         Should be called when setting up MultiMAE.
 
         :param dim_tokens: Dimension of tokens
-        '''
+        """
         self.dim_tokens = dim_tokens
 
         # Task embedding identifying from which task a given token comes from
@@ -185,55 +205,75 @@ class SemSegInputAdapter(nn.Module):
         h_posemb = self.image_size[0] // (self.stride_level * self.P_H)
         w_posemb = self.image_size[1] // (self.stride_level * self.P_W)
         if self.sincos_pos_emb:
-            self.pos_emb = build_2d_sincos_posemb(h=h_posemb, w=w_posemb, embed_dim=self.dim_tokens)
-            self.pos_emb = nn.Parameter(self.pos_emb, requires_grad=self.learnable_pos_emb)
+            self.pos_emb = build_2d_sincos_posemb(
+                h=h_posemb, w=w_posemb, embed_dim=self.dim_tokens
+            )
+            self.pos_emb = nn.Parameter(
+                self.pos_emb, requires_grad=self.learnable_pos_emb
+            )
         else:
-            self.pos_emb = nn.Parameter(torch.zeros(1, self.dim_tokens, h_posemb, w_posemb))
+            self.pos_emb = nn.Parameter(
+                torch.zeros(1, self.dim_tokens, h_posemb, w_posemb)
+            )
             trunc_normal_(self.pos_emb, std=0.02)
 
         # Image -> tokens projection
-        self.class_emb = nn.Embedding(num_embeddings=self.num_classes, embedding_dim=self.dim_class_emb, padding_idx=self.emb_padding_idx)
+        self.class_emb = nn.Embedding(
+            num_embeddings=self.num_classes,
+            embedding_dim=self.dim_class_emb,
+            padding_idx=self.emb_padding_idx,
+        )
         trunc_normal_(self.class_emb.weight, std=0.02)
 
         if self.interpolate_class_emb:
             self.proj = nn.Sequential(
-                nn.Upsample(scale_factor=(1 / self.P_H, 1 / self.P_W),
-                            mode='bilinear'),  # Actually a downsample operation
-                nn.Conv2d(in_channels=self.dim_class_emb, out_channels=self.dim_tokens,
-                          kernel_size=1, stride=1),
+                nn.Upsample(
+                    scale_factor=(1 / self.P_H, 1 / self.P_W), mode="bilinear"
+                ),  # Actually a downsample operation
+                nn.Conv2d(
+                    in_channels=self.dim_class_emb,
+                    out_channels=self.dim_tokens,
+                    kernel_size=1,
+                    stride=1,
+                ),
             )
         else:
             self.proj = nn.Conv2d(
-                in_channels=self.dim_class_emb, out_channels=self.dim_tokens,
-                kernel_size=(self.P_H, self.P_W), stride=(self.P_H, self.P_W)
+                in_channels=self.dim_class_emb,
+                out_channels=self.dim_tokens,
+                kernel_size=(self.P_H, self.P_W),
+                stride=(self.P_H, self.P_W),
             )
 
     @torch.jit.ignore
     def no_weight_decay(self):
-        return {'pos_emb', 'class_emb'}
+        return {"pos_emb", "class_emb"}
 
     def forward(self, x):
-        '''
+        """
         Forward pass through input adapter, transforming image to sequence of tokens.
         Adds task and positional encodings.
 
         :param x: Input image tensor
-        '''
+        """
         B, H, W = x.shape
-        assert self.dim_tokens is not None, 'Need to call init(dim_tokens) function first'
+        assert (
+            self.dim_tokens is not None
+        ), "Need to call init(dim_tokens) function first"
         assert (H % self.P_H == 0) and (
-                    W % self.P_W == 0), f'Image sizes {H}x{W} must be divisible by patch sizes {self.P_H}x{self.P_W}'
+            W % self.P_W == 0
+        ), f"Image sizes {H}x{W} must be divisible by patch sizes {self.P_H}x{self.P_W}"
         N_H, N_W = H // self.P_H, W // self.P_W  # Number of patches in height and width
 
         # Map to embedding
-        x = rearrange(self.class_emb(x), 'b nh nw c -> b c nh nw')
+        x = rearrange(self.class_emb(x), "b nh nw c -> b c nh nw")
 
         # Create patches [B, C, H, W] -> [B, (H*W), C]
-        x_patch = rearrange(self.proj(x), 'b d nh nw -> b (nh nw) d')
+        x_patch = rearrange(self.proj(x), "b d nh nw -> b (nh nw) d")
 
         # Create positional embedding
-        x_pos_emb = F.interpolate(self.pos_emb, size=(N_H, N_W), mode='bilinear')
-        x_pos_emb = rearrange(x_pos_emb, 'b d nh nw -> b (nh nw) d')
+        x_pos_emb = F.interpolate(self.pos_emb, size=(N_H, N_W), mode="bilinear")
+        x_pos_emb = rearrange(x_pos_emb, "b d nh nw -> b (nh nw) d")
 
         # Add patches and positional embeddings
         x = x_patch + x_pos_emb

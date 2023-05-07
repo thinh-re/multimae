@@ -21,20 +21,22 @@ class NativeScalerWithGradNormCount:
         self._scaler = torch.cuda.amp.GradScaler(enabled=enabled)
 
     def __call__(
-        self, 
-        loss: Tensor, 
-        optimizer: torch.optim.Optimizer, 
-        clip_grad: Optional[float]=None, 
-        skip_grad: Optional[float]=None, 
-        parameters: Optional[Iterator[Parameter]]=None, 
-        create_graph: bool = False, 
+        self,
+        loss: Tensor,
+        optimizer: torch.optim.Optimizer,
+        clip_grad: Optional[float] = None,
+        skip_grad: Optional[float] = None,
+        parameters: Optional[Iterator[Parameter]] = None,
+        create_graph: bool = False,
         update_grad: bool = True,
     ):
         self._scaler.scale(loss).backward(create_graph=create_graph)
         if update_grad:
             if clip_grad is not None:
                 assert parameters is not None
-                self._scaler.unscale_(optimizer)  # unscale the gradients of optimizer's assigned params in-place
+                self._scaler.unscale_(
+                    optimizer
+                )  # unscale the gradients of optimizer's assigned params in-place
                 norm = torch.nn.utils.clip_grad_norm_(parameters, clip_grad)
             elif skip_grad is not None:
                 self._scaler.unscale_(optimizer)
@@ -59,7 +61,7 @@ class NativeScalerWithGradNormCount:
 
 
 def get_grad_norm_(
-    parameters: Union[Iterator[Parameter], Tensor], 
+    parameters: Union[Iterator[Parameter], Tensor],
     norm_type: float = 2.0,
 ) -> Tensor:
     if isinstance(parameters, Tensor):
@@ -67,22 +69,27 @@ def get_grad_norm_(
     parameters = [p for p in parameters if p.grad is not None]
     norm_type = float(norm_type)
     if len(parameters) == 0:
-        return torch.tensor(0.)
+        return torch.tensor(0.0)
     device = parameters[0].grad.device
-    if norm_type == inf:
-        total_norm = max(p.grad.detach().abs().max().to(device) for p in parameters)
-    else:
-        total_norm = torch.norm(
-            torch.stack([torch.norm(p.grad.detach(), norm_type).to(device) for p in parameters]),
-            norm_type,
-        )
+    # if norm_type == inf:
+    #     total_norm = max(p.grad.detach().abs().max().to(device) for p in parameters)
+    # else:
+    total_norm = torch.norm(
+        torch.stack(
+            [torch.norm(p.grad.detach(), norm_type).to(device) for p in parameters]
+        ),
+        norm_type,
+    )
     return total_norm
 
 
 def cosine_scheduler(
-    base_value: float, final_value: float, 
-    epochs: int, niter_per_ep: int, 
-    warmup_epochs=0, start_warmup_value=0, 
+    base_value: float,
+    final_value: float,
+    epochs: int,
+    niter_per_ep: int,
+    warmup_epochs=0,
+    start_warmup_value=0,
     warmup_steps=-1,
 ) -> np.ndarray:
     warmup_schedule = np.array([])
@@ -95,25 +102,37 @@ def cosine_scheduler(
 
     iters = np.arange(epochs * niter_per_ep - warmup_iters)
     schedule = np.array(
-        [final_value + 0.5 * (base_value - final_value) * (1 + math.cos(math.pi * i / (len(iters)))) for i in iters])
+        [
+            final_value
+            + 0.5
+            * (base_value - final_value)
+            * (1 + math.cos(math.pi * i / (len(iters))))
+            for i in iters
+        ]
+    )
 
     schedule = np.concatenate((warmup_schedule, schedule))
 
     assert len(schedule) == epochs * niter_per_ep
     return schedule
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
+
     class args:
         lr = 0.0001
-        min_lr = 0.
+        min_lr = 0.0
         num_training_steps_per_epoch = 300
         epochs = 200
         warmup_epochs = 1
         warmup_steps = -1
 
     lr_scheduler = cosine_scheduler(
-        args.lr, args.min_lr, args.epochs, args.num_training_steps_per_epoch,
-        warmup_epochs=args.warmup_epochs, warmup_steps=args.warmup_steps,
+        args.lr,
+        args.min_lr,
+        args.epochs,
+        args.num_training_steps_per_epoch,
+        warmup_epochs=args.warmup_epochs,
+        warmup_steps=args.warmup_steps,
     )
     print(lr_scheduler)
-    

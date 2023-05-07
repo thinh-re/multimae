@@ -49,20 +49,24 @@ def is_image_file(filename: str) -> bool:
 
 
 def make_dataset(
-        directory: str,
-        class_to_idx: Dict[str, int],
-        extensions: Optional[Tuple[str, ...]] = None,
-        is_valid_file: Optional[Callable[[str], bool]] = None,
+    directory: str,
+    class_to_idx: Dict[str, int],
+    extensions: Optional[Tuple[str, ...]] = None,
+    is_valid_file: Optional[Callable[[str], bool]] = None,
 ) -> List[Tuple[str, int]]:
     instances = []
     directory = os.path.expanduser(directory)
     both_none = extensions is None and is_valid_file is None
     both_something = extensions is not None and is_valid_file is not None
     if both_none or both_something:
-        raise ValueError("Both extensions and is_valid_file cannot be None or not None at the same time")
+        raise ValueError(
+            "Both extensions and is_valid_file cannot be None or not None at the same time"
+        )
     if extensions is not None:
+
         def is_valid_file(x: str) -> bool:
             return has_file_allowed_extension(x, cast(Tuple[str, ...], extensions))
+
     is_valid_file = cast(Callable[[str], bool], is_valid_file)
     for target_class in sorted(class_to_idx.keys()):
         class_index = class_to_idx[target_class]
@@ -111,16 +115,17 @@ class DatasetFolder(VisionDataset):
     """
 
     def __init__(
-            self,
-            root: str,
-            loader: Callable[[str], Any],
-            extensions: Optional[Tuple[str, ...]] = None,
-            transform: Optional[Callable] = None,
-            target_transform: Optional[Callable] = None,
-            is_valid_file: Optional[Callable[[str], bool]] = None,
+        self,
+        root: str,
+        loader: Callable[[str], Any],
+        extensions: Optional[Tuple[str, ...]] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        is_valid_file: Optional[Callable[[str], bool]] = None,
     ) -> None:
-        super(DatasetFolder, self).__init__(root, transform=transform,
-                                            target_transform=target_transform)
+        super(DatasetFolder, self).__init__(
+            root, transform=transform, target_transform=target_transform
+        )
         classes, class_to_idx = self._find_classes(self.root)
         samples = make_dataset(self.root, class_to_idx, extensions, is_valid_file)
         if len(samples) == 0:
@@ -217,38 +222,43 @@ class MultiTaskDatasetFolder(VisionDataset):
     """
 
     def __init__(
-            self,
-            root: str,
-            tasks: List[str],
-            loader: Callable[[str], Any],
-            extensions: Optional[Tuple[str, ...]] = None,
-            transform: Optional[Callable] = None,
-            target_transform: Optional[Callable] = None,
-            is_valid_file: Optional[Callable[[str], bool]] = None,
-            prefixes: Optional[Dict[str,str]] = None,
-            max_images: Optional[int] = None
+        self,
+        root: str,
+        tasks: List[str],
+        loader: Callable[[str], Any],
+        extensions: Optional[Tuple[str, ...]] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        is_valid_file: Optional[Callable[[str], bool]] = None,
+        prefixes: Optional[Dict[str, str]] = None,
+        max_images: Optional[int] = None,
     ) -> None:
-        super(MultiTaskDatasetFolder, self).__init__(root, transform=transform,
-                                            target_transform=target_transform)
+        super(MultiTaskDatasetFolder, self).__init__(
+            root, transform=transform, target_transform=target_transform
+        )
         self.tasks = tasks
-        classes, class_to_idx = self._find_classes(os.path.join(self.root, self.tasks[0]))
+        classes, class_to_idx = self._find_classes(
+            os.path.join(self.root, self.tasks[0])
+        )
 
         prefixes = {} if prefixes is None else prefixes
-        prefixes.update({task: '' for task in tasks if task not in prefixes})
-        
+        prefixes.update({task: "" for task in tasks if task not in prefixes})
+
         samples: Dict[str, List[Tuple[str, int]]] = {
             task: make_dataset(
-                os.path.join(self.root, f'{prefixes[task]}{task}'), 
-                class_to_idx, 
-                extensions, 
+                os.path.join(self.root, f"{prefixes[task]}{task}"),
+                class_to_idx,
+                extensions,
                 is_valid_file,
             )
             for task in self.tasks
         }
-        
+
         for task, task_samples in samples.items():
             if len(task_samples) == 0:
-                msg = "Found 0 logs in subfolders of: {}\n".format(os.path.join(self.root, task))
+                msg = "Found 0 logs in subfolders of: {}\n".format(
+                    os.path.join(self.root, task)
+                )
                 if extensions is not None:
                     msg += "Supported extensions are: {}".format(",".join(extensions))
                 raise RuntimeError(msg)
@@ -267,8 +277,10 @@ class MultiTaskDatasetFolder(VisionDataset):
             np.random.seed(0)
             permutation = np.random.permutation(total_samples)
             for task in samples:
-                self.samples[task] = [self.samples[task][i] for i in permutation][:max_images]
-        
+                self.samples[task] = [self.samples[task][i] for i in permutation][
+                    :max_images
+                ]
+
         self.cache = {}
 
     def _find_classes(self, dir: str) -> Tuple[List[str], Dict[str, int]]:
@@ -290,7 +302,8 @@ class MultiTaskDatasetFolder(VisionDataset):
         return classes, class_to_idx
 
     def __getitem__(
-        self, index: int,
+        self,
+        index: int,
     ) -> Tuple[Dict[str, Tensor], Tensor]:
         """
         Args:
@@ -305,8 +318,8 @@ class MultiTaskDatasetFolder(VisionDataset):
             sample_dict = {}
             for task in self.tasks:
                 path, target = self.samples[task][index]
-                sample = pil_loader(path, convert_rgb=(task=='rgb'))
-                sample = sample.convert('P') if 'semseg' in task else sample
+                sample = pil_loader(path, convert_rgb=(task == "rgb"))
+                sample = sample.convert("P") if "semseg" in task else sample
                 sample_dict[task] = sample
             # self.cache[index] = deepcopy((sample_dict, target))
 
@@ -321,7 +334,18 @@ class MultiTaskDatasetFolder(VisionDataset):
         return len(list(self.samples.values())[0])
 
 
-IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp', '.jpx')
+IMG_EXTENSIONS = (
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".ppm",
+    ".bmp",
+    ".pgm",
+    ".tif",
+    ".tiff",
+    ".webp",
+    ".jpx",
+)
 
 
 def pil_loader(path: str, convert_rgb=True) -> Image.Image:
@@ -329,12 +353,13 @@ def pil_loader(path: str, convert_rgb=True) -> Image.Image:
     # with open(path, 'rb') as f:
     #     img = Image.open(f)
     img = Image.open(path)
-    return img.convert('RGB') if convert_rgb else img
+    return img.convert("RGB") if convert_rgb else img
 
 
 # TODO: specify the return type
 def accimage_loader(path: str) -> Any:
     import accimage
+
     try:
         return accimage.Image(path)
     except IOError:
@@ -344,7 +369,8 @@ def accimage_loader(path: str) -> Any:
 
 def default_loader(path: str) -> Any:
     from torchvision import get_image_backend
-    if get_image_backend() == 'accimage':
+
+    if get_image_backend() == "accimage":
         return accimage_loader(path)
     else:
         return pil_loader(path)
@@ -378,18 +404,23 @@ class ImageFolder(DatasetFolder):
     """
 
     def __init__(
-            self,
-            root: str,
-            transform: Optional[Callable] = None,
-            target_transform: Optional[Callable] = None,
-            loader: Callable[[str], Any] = default_loader,
-            is_valid_file: Optional[Callable[[str], bool]] = None,
+        self,
+        root: str,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        loader: Callable[[str], Any] = default_loader,
+        is_valid_file: Optional[Callable[[str], bool]] = None,
     ):
-        super(ImageFolder, self).__init__(root, loader, IMG_EXTENSIONS if is_valid_file is None else None,
-                                          transform=transform,
-                                          target_transform=target_transform,
-                                          is_valid_file=is_valid_file)
+        super(ImageFolder, self).__init__(
+            root,
+            loader,
+            IMG_EXTENSIONS if is_valid_file is None else None,
+            transform=transform,
+            target_transform=target_transform,
+            is_valid_file=is_valid_file,
+        )
         self.imgs = self.samples
+
 
 class MultiTaskImageFolder(MultiTaskDatasetFolder):
     """A generic multi-task dataset loader where the images are arranged in this way: ::
@@ -426,14 +457,18 @@ class MultiTaskImageFolder(MultiTaskDatasetFolder):
         target_transform: Optional[Callable] = None,
         loader: Callable[[str], Any] = pil_loader,
         is_valid_file: Optional[Callable[[str], bool]] = None,
-        prefixes: Optional[Dict[str,str]] = None,
-        max_images: Optional[int] = None
+        prefixes: Optional[Dict[str, str]] = None,
+        max_images: Optional[int] = None,
     ):
         super(MultiTaskImageFolder, self).__init__(
-            root, tasks, loader, IMG_EXTENSIONS if is_valid_file is None else None,
+            root,
+            tasks,
+            loader,
+            IMG_EXTENSIONS if is_valid_file is None else None,
             transform=transform,
             target_transform=target_transform,
             is_valid_file=is_valid_file,
             prefixes=prefixes,
-            max_images=max_images)
+            max_images=max_images,
+        )
         self.imgs = self.samples

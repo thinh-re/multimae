@@ -9,5 +9,5 @@ is_cuda_available = torch.cuda.is_available()
 
 
 def count_parameters(model: nn.Module) -> str:
-    '''Count the number of parameters of a model'''
+    """Count the number of parameters of a model"""
     return num_format(sum(p.numel() for p in model.parameters() if p.requires_grad))

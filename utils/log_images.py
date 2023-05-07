@@ -13,39 +13,38 @@ import torchvision.transforms as transforms
 
 import utils
 import wandb
-from utils.datasets_semseg import (ade_classes, hypersim_classes,
-                                   nyu_v2_40_classes)
+from utils.datasets_semseg import ade_classes, hypersim_classes, nyu_v2_40_classes
 
 
 def inv_norm(tensor: torch.Tensor) -> torch.Tensor:
-    """Inverse of the normalization that was done during pre-processing
-    """
+    """Inverse of the normalization that was done during pre-processing"""
     inv_normalize = transforms.Normalize(
         mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
-        std=[1 / 0.229, 1 / 0.224, 1 / 0.225])
+        std=[1 / 0.229, 1 / 0.224, 1 / 0.225],
+    )
 
     return inv_normalize(tensor)
 
 
 @torch.no_grad()
 def log_semseg_wandb(
-    images: torch.Tensor, 
-    preds: List[np.ndarray], 
+    images: torch.Tensor,
+    preds: List[np.ndarray],
     gts: List[np.ndarray],
     depth_gts: List[np.ndarray],
-    dataset_name: str = 'ade20k',
-    image_count=8, 
+    dataset_name: str = "ade20k",
+    image_count=8,
     prefix="",
 ):
 
-    if dataset_name == 'ade20k':
+    if dataset_name == "ade20k":
         classes = ade_classes()
-    elif dataset_name == 'hypersim':
+    elif dataset_name == "hypersim":
         classes = hypersim_classes()
-    elif dataset_name == 'nyu':
+    elif dataset_name == "nyu":
         classes = nyu_v2_40_classes()
     else:
-        raise ValueError(f'Dataset {dataset_name} not supported for logging to wandb.')
+        raise ValueError(f"Dataset {dataset_name} not supported for logging to wandb.")
 
     class_labels = {i: cls for i, cls in enumerate(classes)}
     class_labels[len(classes)] = "void"
@@ -64,16 +63,19 @@ def log_semseg_wandb(
         image = inv_norm(image)
         pred[gt == utils.SEG_IGNORE_INDEX] = utils.SEG_IGNORE_INDEX
 
-        semseg_image = wandb.Image(image, masks={
-            "predictions": {
-                "mask_data": pred,
-                "class_labels": class_labels,
+        semseg_image = wandb.Image(
+            image,
+            masks={
+                "predictions": {
+                    "mask_data": pred,
+                    "class_labels": class_labels,
+                },
+                "ground_truth": {
+                    "mask_data": gt,
+                    "class_labels": class_labels,
+                },
             },
-            "ground_truth": {
-                "mask_data": gt,
-                "class_labels": class_labels,
-            }
-        })
+        )
 
         semseg_images[f"{prefix}_{i}"] = semseg_image
 
@@ -85,15 +87,15 @@ def log_semseg_wandb(
 
 @torch.no_grad()
 def log_taskonomy_wandb(
-    preds: Dict[str, torch.Tensor], 
-    gts: Dict[str, torch.Tensor], 
-    image_count=8, 
+    preds: Dict[str, torch.Tensor],
+    gts: Dict[str, torch.Tensor],
+    image_count=8,
     prefix="",
 ):
     pred_tasks = list(preds.keys())
     gt_tasks = list(gts.keys())
-    if 'mask_valid' in gt_tasks:
-        gt_tasks.remove('mask_valid')
+    if "mask_valid" in gt_tasks:
+        gt_tasks.remove("mask_valid")
 
     image_count = min(len(preds[pred_tasks[0]]), image_count)
 
@@ -104,15 +106,15 @@ def log_taskonomy_wandb(
         # Log GTs
         for task in gt_tasks:
             gt_img = gts[task][i]
-            if task == 'rgb':
+            if task == "rgb":
                 gt_img = inv_norm(gt_img)
             if gt_img.shape[0] == 1:
                 gt_img = gt_img[0]
             elif gt_img.shape[0] == 2:
-                gt_img = F.pad(gt_img, (0,0,0,0,0,1), mode='constant', value=0.0)
+                gt_img = F.pad(gt_img, (0, 0, 0, 0, 0, 1), mode="constant", value=0.0)
 
-            gt_img = wandb.Image(gt_img, caption=f'GT #{i}')
-            key = f'{prefix}_gt_{task}'
+            gt_img = wandb.Image(gt_img, caption=f"GT #{i}")
+            key = f"{prefix}_gt_{task}"
             if key not in all_images:
                 all_images[key] = [gt_img]
             else:
@@ -121,15 +123,17 @@ def log_taskonomy_wandb(
         # Log preds
         for task in pred_tasks:
             pred_img = preds[task][i]
-            if task == 'rgb':
+            if task == "rgb":
                 pred_img = inv_norm(pred_img)
             if pred_img.shape[0] == 1:
                 pred_img = pred_img[0]
             elif pred_img.shape[0] == 2:
-                pred_img = F.pad(pred_img, (0,0,0,0,0,1), mode='constant', value=0.0)
+                pred_img = F.pad(
+                    pred_img, (0, 0, 0, 0, 0, 1), mode="constant", value=0.0
+                )
 
-            pred_img = wandb.Image(pred_img, caption=f'Pred #{i}')
-            key = f'{prefix}_pred_{task}'
+            pred_img = wandb.Image(pred_img, caption=f"Pred #{i}")
+            key = f"{prefix}_pred_{task}"
             if key not in all_images:
                 all_images[key] = [pred_img]
             else:
