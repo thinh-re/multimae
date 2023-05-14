@@ -1,6 +1,5 @@
 # Copyright (c) EPFL VILAB.
 # All rights reserved.
-
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 # --------------------------------------------------------
@@ -13,6 +12,7 @@
 # --------------------------------------------------------
 import os
 import os.path
+import glob
 import random
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
@@ -21,6 +21,7 @@ import numpy as np
 from PIL import Image
 from torch import Tensor
 from torchvision.datasets.vision import VisionDataset
+from tqdm import tqdm
 
 
 def has_file_allowed_extension(filename: str, extensions: Tuple[str, ...]) -> bool:
@@ -312,15 +313,16 @@ class MultiTaskDatasetFolder(VisionDataset):
         Returns:
             tuple: (sample, target) where target is class_index of the target class.
         """
-        if index in self.cache:
-            sample_dict, target = deepcopy(self.cache[index])
-        else:
-            sample_dict = {}
-            for task in self.tasks:
-                path, target = self.samples[task][index]
-                sample = pil_loader(path, convert_rgb=(task == "rgb"))
-                sample = sample.convert("P") if "semseg" in task else sample
-                sample_dict[task] = sample
+        # if index in self.cache:
+        #     sample_dict, target = deepcopy(self.cache[index])
+        # else:
+        sample_dict = {}
+        for task in self.tasks:
+            path, target = self.samples[task][index]
+            sample = pil_loader(path, convert_rgb=(task == "rgb"))
+            sample = sample.convert("L") if "depth" in task else sample
+            # sample = sample.convert("P") if "semseg" in task else sample
+            sample_dict[task] = sample
             # self.cache[index] = deepcopy((sample_dict, target))
 
         if self.transform is not None:
@@ -420,6 +422,75 @@ class ImageFolder(DatasetFolder):
             is_valid_file=is_valid_file,
         )
         self.imgs = self.samples
+
+
+class MultiTaskImageFolderV2(VisionDataset):
+    """A multi-task dataset loader where the images are arranged in this way:
+
+    ├── <data_path>
+    │   ├── <task_1>
+    │   │   ├── *.[png|jpeg|jpg]
+    │   ├── <task_2>
+    │   │   ├── *.[png|jpeg|jpg]
+    """
+
+    def __init__(self, data_path: str, tasks: List[str], transform: Callable):
+        self.data_path = data_path
+        self.tasks = tasks
+        self.transform = transform
+
+        self.d: Dict[str, List] = dict()
+        for task in self.tasks:
+            self.d[task] = []
+
+        assert len(tasks) >= 1, "Number of tasks must be at least 1"
+
+        """
+        tmp = {
+            "<task_i>": {
+                "<file_name>": "<full_path>",
+                ...
+            },
+            ...
+        }
+        """
+        tmp: Dict[Dict[str, str]] = dict()
+
+        for task in self.tasks:
+            tmp[task] = dict()
+            image_paths = glob.glob(os.path.join(data_path, task, "sod", "*"))
+            for image_path in image_paths:
+                base_name = os.path.basename(image_path)
+                file_name = os.path.splitext(base_name)[0]
+                tmp[task][file_name] = image_path
+
+        first_task = tasks[0]
+
+        for file_name, image_path in tmp[first_task].items():
+            self.d[first_task].append(image_path)
+            for task in self.tasks[1:]:
+                assert (
+                    file_name in tmp[task]
+                ), f"File name {file_name} not found in task {task}"
+                self.d[task].append(tmp[task][file_name])
+
+    def __getitem__(self, index: int) -> Any:
+        rs = dict()
+
+        for task in self.tasks:
+            img = Image.open(self.d[task][index])
+            if "depth" in task:
+                img = img.convert("L")
+            if "rgb" in task:
+                img = img.convert("RGB")
+
+            rs[task] = img
+
+        return self.transform(rs), 0
+
+    def __len__(self) -> int:
+        first_task = self.tasks[0]
+        return len(self.d[first_task])
 
 
 class MultiTaskImageFolder(MultiTaskDatasetFolder):

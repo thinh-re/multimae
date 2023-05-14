@@ -4,6 +4,7 @@ import os
 import yaml
 from tap import Tap
 
+import time
 from utils.data_constants import IMAGENET_TRAIN_PATH
 
 
@@ -123,7 +124,9 @@ def get_args() -> PretrainArgparser:
     # defaults will have been overridden if config file specified.
     args = parser.parse_args(remaining)
 
-    args.wandb_run_name = args_config.config.split("/")[-1].split(".yaml")[0]
+    args.wandb_run_name = (
+        f'{args_config.config.split("/")[-1].split(".yaml")[0]}_{int(time.time())}'
+    )
     args.output_dir = os.path.join(
         args.output_dir,
         args.wandb_run_name,

@@ -33,9 +33,9 @@ from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 from tqdm import tqdm
-from demo.app import log_inference
 
 import utils
+from demo.app import log_inference
 from multimae import MultiMAE
 from multimae.criterion import MaskedCrossEntropyLoss, MaskedL1Loss, MaskedMSELoss
 from multimae.input_adapters import PatchedInputAdapter, SemSegInputAdapter
@@ -45,8 +45,8 @@ from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import create_model
 from utils.data_constants import COCO_SEMSEG_NUM_CLASSES
 from utils.datasets import (
-    build_multimae_pretraining_dev_dataset,
-    build_multimae_pretraining_train_dataset,
+    build_multimae_pretraining_dev_dataset_v2,
+    build_multimae_pretraining_train_dataset_v2,
 )
 from utils.optim_factory import create_optimizer
 
@@ -175,8 +175,8 @@ def main(args: PretrainArgparser):
         )
 
     # Get dataset
-    dataset_train = build_multimae_pretraining_train_dataset(args)
-    dataset_dev = build_multimae_pretraining_dev_dataset(args)
+    dataset_train = build_multimae_pretraining_train_dataset_v2(args)
+    dataset_dev = build_multimae_pretraining_dev_dataset_v2(args)
 
     if True:  # args.distributed:
         num_tasks = utils.get_world_size()

@@ -31,7 +31,7 @@ from .data_constants import (
     IMAGENET_INCEPTION_MEAN,
     IMAGENET_INCEPTION_STD,
 )
-from .dataset_folder import ImageFolder, MultiTaskImageFolder
+from .dataset_folder import ImageFolder, MultiTaskImageFolder, MultiTaskImageFolderV2
 
 
 def denormalize(
@@ -152,7 +152,7 @@ class DataAugmentationForMultiMAE(object):
 
     def __repr__(self):
         repr = "(DataAugmentationForMultiMAE,\n"
-        # repr += "  transform = %s,\n" % str(self.transform)
+        repr += "  transform = %s,\n" % str(self.transform)
         repr += ")"
         return repr
 
@@ -163,11 +163,20 @@ def build_pretraining_dataset(args: PretrainArgparser):
     return ImageFolder(args.data_path, transform=transform)
 
 
+def build_multimae_pretraining_train_dataset_v2(args: PretrainArgparser):
+    transform = DataAugmentationForMultiMAE(args)
+    return MultiTaskImageFolderV2(args.data_path, args.all_domains, transform=transform)
+
+# @deprecated
 def build_multimae_pretraining_train_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args)
     return MultiTaskImageFolder(args.data_path, args.all_domains, transform=transform)
 
+def build_multimae_pretraining_dev_dataset_v2(args: PretrainArgparser):
+    transform = DataAugmentationForMultiMAE(args, eval_mode=True)
+    return MultiTaskImageFolderV2(args.data_path, args.all_domains, transform=transform)
 
+# @deprecated
 def build_multimae_pretraining_dev_dataset(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args, eval_mode=True)
     return MultiTaskImageFolder(args.data_path, args.all_domains, transform=transform)
