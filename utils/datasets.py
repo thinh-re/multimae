@@ -165,7 +165,7 @@ def build_pretraining_dataset(args: PretrainArgparser):
 
 def build_multimae_pretraining_train_dataset_v2(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args)
-    return MultiTaskImageFolderV2(args.data_path, args.all_domains, transform=transform)
+    return MultiTaskImageFolderV2(args.data_paths, args.all_domains, transform=transform)
 
 # @deprecated
 def build_multimae_pretraining_train_dataset(args: PretrainArgparser):
@@ -174,7 +174,7 @@ def build_multimae_pretraining_train_dataset(args: PretrainArgparser):
 
 def build_multimae_pretraining_dev_dataset_v2(args: PretrainArgparser):
     transform = DataAugmentationForMultiMAE(args, eval_mode=True)
-    return MultiTaskImageFolderV2(args.data_path, args.all_domains, transform=transform)
+    return MultiTaskImageFolderV2(args.data_paths, args.all_domains, transform=transform)
 
 # @deprecated
 def build_multimae_pretraining_dev_dataset(args: PretrainArgparser):

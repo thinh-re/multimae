@@ -27,7 +27,9 @@ hflip: 0.5
 loss_on_unmasked: False
 
 # Data
-data_path: 'datasets' # Change me
+data_paths:
+  - 'datasets/multimae-v1'
+  - 'datasets/nyu-depth-v2'
 
 # Wandb logging
 log_wandb: True # Set to True to log to Weights & Biases

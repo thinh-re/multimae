@@ -12,8 +12,8 @@
 # --------------------------------------------------------
 import os
 import os.path
-import glob
 import random
+import json
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
@@ -21,7 +21,6 @@ import numpy as np
 from PIL import Image
 from torch import Tensor
 from torchvision.datasets.vision import VisionDataset
-from tqdm import tqdm
 
 
 def has_file_allowed_extension(filename: str, extensions: Tuple[str, ...]) -> bool:
@@ -434,51 +433,35 @@ class MultiTaskImageFolderV2(VisionDataset):
     │   │   ├── *.[png|jpeg|jpg]
     """
 
-    def __init__(self, data_path: str, tasks: List[str], transform: Callable):
-        self.data_path = data_path
+    def __init__(self, data_paths: List[str], tasks: List[str], transform: Callable):
+        self.data_paths = data_paths
         self.tasks = tasks
         self.transform = transform
 
-        self.d: Dict[str, List] = dict()
-        for task in self.tasks:
-            self.d[task] = []
+        self.samples = []
 
         assert len(tasks) >= 1, "Number of tasks must be at least 1"
 
-        """
-        tmp = {
-            "<task_i>": {
-                "<file_name>": "<full_path>",
-                ...
-            },
-            ...
-        }
-        """
-        tmp: Dict[Dict[str, str]] = dict()
+        for data_path in data_paths:
+            dataset_name = os.path.basename(data_path)
+            with open(f"datasets_metadata/{dataset_name}.json", "r") as f:
+                json_object = json.load(f)
+            samples = json_object["samples"]
+            print(
+                f"Num samples from dataset {dataset_name}", len(json_object["samples"])
+            )
+            for sample in samples:
+                for task in self.tasks:
+                    sample[task] = os.path.join(data_path, sample[task])
+            self.samples.extend(samples)
 
-        for task in self.tasks:
-            tmp[task] = dict()
-            image_paths = glob.glob(os.path.join(data_path, task, "sod", "*"))
-            for image_path in image_paths:
-                base_name = os.path.basename(image_path)
-                file_name = os.path.splitext(base_name)[0]
-                tmp[task][file_name] = image_path
-
-        first_task = tasks[0]
-
-        for file_name, image_path in tmp[first_task].items():
-            self.d[first_task].append(image_path)
-            for task in self.tasks[1:]:
-                assert (
-                    file_name in tmp[task]
-                ), f"File name {file_name} not found in task {task}"
-                self.d[task].append(tmp[task][file_name])
+        print("Total samples", len(self.samples))
 
     def __getitem__(self, index: int) -> Any:
         rs = dict()
 
         for task in self.tasks:
-            img = Image.open(self.d[task][index])
+            img = Image.open(self.samples[index][task])
             if "depth" in task:
                 img = img.convert("L")
             if "rgb" in task:
@@ -489,8 +472,7 @@ class MultiTaskImageFolderV2(VisionDataset):
         return self.transform(rs), 0
 
     def __len__(self) -> int:
-        first_task = self.tasks[0]
-        return len(self.d[first_task])
+        return len(self.samples)
 
 
 class MultiTaskImageFolder(MultiTaskDatasetFolder):
