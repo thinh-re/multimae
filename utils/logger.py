@@ -223,7 +223,7 @@ class WandbLogger(object):
 
         wandb.log(
             log_dict,
-            # step=self.step,
+            step=self.step,
         )
 
     def flush(self):
