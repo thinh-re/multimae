@@ -107,6 +107,7 @@ class PretrainArgparser(Tap):
     dist_backend: Optional[str] = "nccl"
     lr: Optional[float] = 1e3
     no_lr_scale_list: Optional[List[float]] = []
+    normalized_depth: Optional[bool] = False
 
     version: Optional[str] = ""
 

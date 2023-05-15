@@ -423,6 +423,10 @@ class ImageFolder(DatasetFolder):
         self.imgs = self.samples
 
 
+def normalize(x: np.array) -> np.array:
+    return (x - np.min(x)) / (np.max(x) - np.min(x) + 1e-8)
+
+
 class MultiTaskImageFolderV2(VisionDataset):
     """A multi-task dataset loader where the images are arranged in this way:
 
@@ -433,10 +437,17 @@ class MultiTaskImageFolderV2(VisionDataset):
     │   │   ├── *.[png|jpeg|jpg]
     """
 
-    def __init__(self, data_paths: List[str], tasks: List[str], transform: Callable):
+    def __init__(
+        self,
+        data_paths: List[str],
+        tasks: List[str],
+        transform: Callable,
+        normalized_depth: bool,
+    ):
         self.data_paths = data_paths
         self.tasks = tasks
         self.transform = transform
+        self.normalized_depth = normalized_depth
 
         self.samples = []
 
@@ -463,7 +474,12 @@ class MultiTaskImageFolderV2(VisionDataset):
         for task in self.tasks:
             img = Image.open(self.samples[index][task])
             if "depth" in task:
-                img = img.convert("L")
+                if self.normalized_depth:
+                    img = normalize(np.array(img)) * 255
+                    img = img.astype(np.uint8)
+                    img = Image.fromarray(img)
+                else:
+                    img = img.convert("L")
             if "rgb" in task:
                 img = img.convert("RGB")
 
