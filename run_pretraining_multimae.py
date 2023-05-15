@@ -536,6 +536,7 @@ def train_one_epoch(
                     "lr": max_lr,
                     "weight_decay": weight_decay_value,
                     "grad_norm": grad_norm,
+                    "epoch": epoch,
                 }
             )
             log_writer.update(task_loss_values)
