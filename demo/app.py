@@ -170,6 +170,7 @@ def log_inference(
 ):
     if log_writer is None:
         return
+    print("log_inference")
     data = [
         # [wandb.Image, wandb.Image, wandb.Image, wandb.Image, wandb.Image, wandb.Image, ]
     ]
@@ -226,7 +227,6 @@ def inference(
     num_depth: int,
     seed: int,
 ):
-
     num_tokens = int(588 * num_tokens / 100.0)
     num_rgb = int(196 * num_rgb / 100.0)
     num_depth = int(196 * num_depth / 100.0)

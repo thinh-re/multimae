@@ -179,16 +179,17 @@ def main(args: PretrainArgparser):
     dataset_dev = build_multimae_pretraining_dev_dataset_v2(args)
 
     if True:  # args.distributed:
-        num_tasks = utils.get_world_size()
+        world_size = utils.get_world_size()
         global_rank = utils.get_rank()
+        print("global_rank", global_rank)
         sampler_rank = global_rank
         num_training_steps_per_epoch = (
-            len(dataset_train) // args.batch_size // num_tasks
+            len(dataset_train) // args.batch_size // world_size
         )
 
         sampler_train = DistributedSampler(
             dataset_train,
-            num_replicas=num_tasks,
+            num_replicas=world_size,
             rank=sampler_rank,
             shuffle=True,
             drop_last=True,
