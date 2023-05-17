@@ -25,6 +25,7 @@ warmup_epochs: 40
 batch_size: 128 # 136 # 256 <---------------------
 hflip: 0.5
 loss_on_unmasked: False
+save_ckpt_freq: 5
 
 # Data
 data_path: '/kaggle/input/multimae-v1' # Change me
