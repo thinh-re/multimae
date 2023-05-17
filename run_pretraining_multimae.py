@@ -287,7 +287,7 @@ def main(args: PretrainArgparser):
             seed,
             dataset_dev,
             log_writer,
-            epoch="latest",
+            epoch=args.start_epoch,
             num_samples=10,
         )
 
@@ -345,7 +345,7 @@ def main(args: PretrainArgparser):
                     seed,
                     dataset_dev,
                     log_writer,
-                    epoch="latest",
+                    epoch=epoch,
                     num_samples=10,
                 )
 
