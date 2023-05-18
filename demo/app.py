@@ -12,7 +12,7 @@ from torch import Tensor, nn
 import wandb
 from multimae.multimae import MultiMAE
 from utils.data_constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from utils.dataset_folder import MultiTaskImageFolder
+from utils.dataset_folder import MultiTaskImageFolderV2
 from utils.logger import WandbLogger
 
 
@@ -163,7 +163,7 @@ l1loss = nn.L1Loss()
 def log_inference(
     model: MultiMAE,
     seed: int,
-    dataset_dev: MultiTaskImageFolder,
+    dataset_dev: MultiTaskImageFolderV2,
     log_writer: Optional[WandbLogger],
     epoch: int,
     num_samples: int = 10,
