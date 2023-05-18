@@ -228,3 +228,6 @@ class WandbLogger(object):
 
     def flush(self):
         pass
+
+    def finish(self):
+        wandb.finish()
