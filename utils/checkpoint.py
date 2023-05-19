@@ -182,7 +182,7 @@ def auto_load_model(
                 args.resume = os.path.join(
                     output_dir, "checkpoint-%d.pth" % latest_ckpt
                 )
-            print("Auto resume checkpoint: %s" % args.resume)
+            print(f"Auto resume checkpoint: {args.resume} epoch {latest_ckpt}")
 
         if args.resume:
             if args.resume.startswith("https"):

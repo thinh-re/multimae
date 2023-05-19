@@ -100,6 +100,7 @@ class DataAugmentationForMultiMAE(object):
         )
         self.input_size = args.input_size
         self.hflip = args.hflip
+        self.depth_range = args.depth_range
 
     def __call__(self, task_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
         if not self.eval_mode:
@@ -135,7 +136,7 @@ class DataAugmentationForMultiMAE(object):
                         img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC
                     )
                 else:
-                    img = torch.Tensor(np.array(task_dict[task]) / 2**16)
+                    img = torch.Tensor(np.array(task_dict[task]) / self.depth_range)
                     img = img.unsqueeze(0)  # 1 x H x W
             elif task in ["rgb"]:
                 img = TF.to_tensor(task_dict[task])

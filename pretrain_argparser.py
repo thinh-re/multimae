@@ -111,6 +111,8 @@ class PretrainArgparser(Tap):
 
     version: Optional[str] = ""
 
+    depth_range: Optional[int] = 2**16
+
 
 def get_args() -> PretrainArgparser:
     config_parser = parser = PretrainArgparser(
