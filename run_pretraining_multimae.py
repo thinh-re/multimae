@@ -52,43 +52,43 @@ from utils.optim_factory import create_optimizer
 
 CPU_DEVICE = torch.device("cpu")
 
+DOMAIN_CONF = {
+    "rgb": {
+        "channels": 3,
+        "stride_level": 1,
+        "input_adapter": partial(PatchedInputAdapter, num_channels=3),
+        "output_adapter": partial(SpatialOutputAdapter, num_channels=3),
+        "loss": MaskedMSELoss,
+    },
+    "depth": {
+        "channels": 1,
+        "stride_level": 1,
+        "input_adapter": partial(PatchedInputAdapter, num_channels=1),
+        "output_adapter": partial(SpatialOutputAdapter, num_channels=1),
+        "loss": MaskedL1Loss,
+    },
+    "semseg": {
+        "num_classes": 133,
+        "stride_level": 4,
+        "input_adapter": partial(
+            SemSegInputAdapter,
+            num_classes=COCO_SEMSEG_NUM_CLASSES,
+            dim_class_emb=64,
+            interpolate_class_emb=False,
+        ),
+        "output_adapter": partial(
+            SpatialOutputAdapter, num_channels=COCO_SEMSEG_NUM_CLASSES
+        ),
+        "loss": partial(MaskedCrossEntropyLoss, label_smoothing=0.0),
+    },
+}
+
 
 def get_model(args: PretrainArgparser) -> MultiMAE:
     """Creates and returns model from arguments"""
     print(
         f"Creating model: {args.model} for inputs {args.in_domains} and outputs {args.out_domains}"
     )
-
-    DOMAIN_CONF = {
-        "rgb": {
-            "channels": 3,
-            "stride_level": 1,
-            "input_adapter": partial(PatchedInputAdapter, num_channels=3),
-            "output_adapter": partial(SpatialOutputAdapter, num_channels=3),
-            "loss": MaskedMSELoss,
-        },
-        "depth": {
-            "channels": 1,
-            "stride_level": 1,
-            "input_adapter": partial(PatchedInputAdapter, num_channels=1),
-            "output_adapter": partial(SpatialOutputAdapter, num_channels=1),
-            "loss": MaskedL1Loss if args.depth_loss == "l1" else MaskedMSELoss,
-        },
-        "semseg": {
-            "num_classes": 133,
-            "stride_level": 4,
-            "input_adapter": partial(
-                SemSegInputAdapter,
-                num_classes=COCO_SEMSEG_NUM_CLASSES,
-                dim_class_emb=64,
-                interpolate_class_emb=False,
-            ),
-            "output_adapter": partial(
-                SpatialOutputAdapter, num_channels=COCO_SEMSEG_NUM_CLASSES
-            ),
-            "loss": partial(MaskedCrossEntropyLoss, label_smoothing=0.0),
-        },
-    }
 
     input_adapters = {
         domain: DOMAIN_CONF[domain]["input_adapter"](
@@ -651,4 +651,6 @@ if __name__ == "__main__":
     opts = get_args()
     if opts.output_dir:
         Path(opts.output_dir).mkdir(parents=True, exist_ok=True)
+    if opts.depth_loss == "mse":
+        DOMAIN_CONF["depth"]["loss"] = MaskedMSELoss
     main(opts)
