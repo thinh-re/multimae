@@ -1,0 +1,43 @@
+# Input and output tasks
+in_domains: rgb-depth
+out_domains: rgb-depth
+standardize_depth: True
+extra_norm_pix_loss: True
+
+# Architecture
+model: pretrain_multimae_base
+decoder_dim: 256
+input_size: 224
+patch_size: 16
+alphas: 1.0  # Dirichlet concentration parameter
+num_encoded_tokens: 98 # Total would be 196 * 3 patches. 196 / 2 = 98
+num_global_tokens: 1
+decoder_use_task_queries: True
+decoder_depth: 2
+
+# Train
+epochs: 800
+opt: adamw
+blr: 0.0001 # this is base_lr = 1e-5, lr = base_lr * batch_size / 256
+warmup_lr: 0.00001 # 1e-6
+min_lr: 0.
+warmup_epochs: 20
+batch_size: 128 # 136 # 256 <---------------------
+hflip: 0.5
+loss_on_unmasked: False
+save_ckpt_freq: 5
+
+# Data
+data_path: '/kaggle/input/multimae-v1' # Change me
+data_paths:
+  - '/kaggle/input/multimae-v1'
+  - '/kaggle/input/nyu-depth-v2'
+
+# Wandb logging
+log_wandb: True # Set to True to log to Weights & Biases
+wandb_project: PretrainSMultiMAE
+output_dir: './output/pretrain' # Change directory if needed
+normalized_depth: True
+
+depth_range: 256
+depth_loss: "mse"
