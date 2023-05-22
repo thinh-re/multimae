@@ -13,7 +13,8 @@ runs/
 *.DS_Store
 notebooks/
 pretrained/
-pretrained_weights/
+pretrained_weights/*
+!pretrained_weights/.gitkeep
 env/
 
 images
