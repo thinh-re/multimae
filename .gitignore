@@ -8,7 +8,7 @@ run.sh
 output/
 wandb/
 runs/
-.vscode/
+# .vscode/
 *.pth
 *.DS_Store
 notebooks/

@@ -113,6 +113,7 @@ class PretrainArgparser(Tap):
 
     depth_range: Optional[int] = 2**16
     depth_loss: Optional[str] = "l1"  # ["l1", "mse"]
+    pretrained_weights: Optional[str] = None
 
 
 def get_args() -> PretrainArgparser:
