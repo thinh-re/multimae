@@ -530,10 +530,12 @@ def train_one_epoch(
         metric_logger.update(grad_norm=grad_norm)
 
         if log_writer is not None:
-            log_writer.update(
+            task_loss_values.update(
                 {
                     "loss": loss_value,
-                    "lr": max_lr,
+                    "lr": max_lr,  # deprecated
+                    "max_lr": max_lr,
+                    "min_lr": min_lr,
                     "weight_decay": weight_decay_value,
                     "grad_norm": grad_norm,
                 }

@@ -12,6 +12,8 @@ from typing import Dict
 import torch
 from torch import optim as optim
 
+from .multimae_keys import get_keys_by_pretrained_backbone_name
+
 try:
     from apex.optimizers import FusedAdam, FusedLAMB, FusedNovoGrad, FusedSGD
 
@@ -165,13 +167,24 @@ def create_optimizer(
 
     if isinstance(model, Module):
         parameters, weight_decay = get_parameters(model)
-    elif isinstance(model, dict):
+    elif isinstance(model, Dict[str, Module]):
+        pretrained_keys = get_keys_by_pretrained_backbone_name(args.pretrained_backbone)
         parameters = [
             {
                 "params": [
-                    p for n, p in model["model"].named_parameters() if p.requires_grad
+                    p
+                    for n, p in model["model"].named_parameters()
+                    if p.requires_grad and n in pretrained_keys
                 ],
                 "lr_scale": 1.0,
+            },
+            {
+                "params": [
+                    p
+                    for n, p in model["model"].named_parameters()
+                    if p.requires_grad and n not in pretrained_keys
+                ],
+                "lr_scale": args.lr_scale,
             },
         ]
 

@@ -13,7 +13,7 @@
             "justMyCode": true,
             "args": [
                 "--config",
-                "cfgs/pretrain/v1.0.11.yaml"
+                "cfgs/pretrain/local.yaml"
             ]
         }
     ]

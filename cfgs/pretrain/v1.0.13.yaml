@@ -19,7 +19,7 @@ decoder_depth: 2
 epochs: 800
 opt: adamw
 blr: 0.001 # this is base_lr = 1e-5, lr = base_lr * batch_size / 256
-warmup_lr: 0.00001 # 1e-6
+warmup_lr: 0.00001 # 1e-5
 min_lr: 0.
 warmup_epochs: 20
 batch_size: 128 # 136 # 256 <---------------------
