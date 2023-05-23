@@ -42,3 +42,6 @@ normalized_depth: True
 depth_range: 256
 depth_loss: "mse"
 pretrained_weights: '/kaggle/input/pretrainedweightsmultimae/multimae-b_98_rgb-depth-semseg_1600e_multivit-afff3f8c.pth'
+gpus:
+  - 0
+  - 1

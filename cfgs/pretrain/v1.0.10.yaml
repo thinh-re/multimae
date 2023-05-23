@@ -41,3 +41,7 @@ normalized_depth: True
 
 depth_range: 256
 depth_loss: "mse"
+
+gpus:
+  - 0
+  - 1

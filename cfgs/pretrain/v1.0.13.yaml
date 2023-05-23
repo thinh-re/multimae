@@ -42,3 +42,6 @@ normalized_depth: True
 depth_range: 256
 depth_loss: "l1"
 pretrained_weights: '/kaggle/input/pretrainedweightsmultimae/mae-b_dec512d8b_1600e_multivit-c477195b.pth'
+gpus:
+  - 0
+  - 1

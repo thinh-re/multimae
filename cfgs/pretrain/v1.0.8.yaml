@@ -40,3 +40,6 @@ output_dir: './output/pretrain' # Change directory if needed
 normalized_depth: True
 
 depth_range: 256
+gpus:
+  - 0
+  - 1
