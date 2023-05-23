@@ -67,7 +67,7 @@ def init_distributed_mode(args: PretrainArgparser):
     if args.dist_on_itp:
         args.rank = int(os.environ["OMPI_COMM_WORLD_RANK"])
         args.world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
-        args.gpu = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+        args.gpu = args.gpus[int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])]
         args.dist_url = "tcp://%s:%s" % (
             os.environ["MASTER_ADDR"],
             os.environ["MASTER_PORT"],
@@ -79,10 +79,10 @@ def init_distributed_mode(args: PretrainArgparser):
     elif "RANK" in os.environ and "WORLD_SIZE" in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ["WORLD_SIZE"])
-        args.gpu = int(os.environ["LOCAL_RANK"])
+        args.gpu = args.gpus[int(os.environ["LOCAL_RANK"])]
     elif "SLURM_PROCID" in os.environ:
         args.rank = int(os.environ["SLURM_PROCID"])
-        args.gpu = args.rank % torch.cuda.device_count()
+        args.gpu = args.gpus[args.rank % torch.cuda.device_count()]
     else:
         print("Not using distributed mode")
         args.distributed = False

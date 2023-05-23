@@ -140,7 +140,6 @@ def get_model(args: PretrainArgparser) -> MultiMAE:
 
 def main(args: PretrainArgparser):
     utils.init_distributed_mode(args)
-    device = torch.device(args.device)
 
     # Fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
@@ -202,6 +201,7 @@ def main(args: PretrainArgparser):
     else:
         sampler_train = RandomSampler(dataset_train)
 
+    device = torch.device(args.device)
     print(args)
 
     data_loader_train = DataLoader(

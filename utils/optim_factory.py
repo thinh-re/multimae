@@ -167,7 +167,8 @@ def create_optimizer(
 
     if isinstance(model, Module):
         parameters, weight_decay = get_parameters(model)
-    elif isinstance(model, Dict[str, Module]):
+    elif isinstance(model, dict):
+        model: Dict[str, Module]
         pretrained_keys = get_keys_by_pretrained_backbone_name(args.pretrained_backbone)
         parameters = [
             {

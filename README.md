@@ -5,6 +5,12 @@
 - Aim to train with Python 3.10 on Kaggle
 - Use `typed-argument-parser` instead of `argparse.ArgumentParser` => Provide type hints, better for understanding code and ease of debugging.
 
+## Train
+
+```bash
+CUDA_AVAILABLE_DEVICES=0,3 torchrun --nproc_per_node=2 run_pretraining_multimae.py --config cfgs/pretrain/v1.0.15-pr.yaml
+```
+
 ## Results
 
 Kaggle Notebook: [Pretrain MultiMAE for RGB-D SOD](https://www.kaggle.com/code/thinhhuynh3108/pretrain-multimae-for-rgb-d-sod)

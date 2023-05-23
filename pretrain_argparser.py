@@ -103,6 +103,7 @@ class PretrainArgparser(Tap):
     all_domains: Optional[List[str]] = []
     rank: Optional[int] = -1
     gpu: Optional[int] = -1
+    gpus: Optional[int] = [-1]
     distributed: Optional[bool] = False
     dist_backend: Optional[str] = "nccl"
     lr: Optional[float] = 1e3
