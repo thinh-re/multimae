@@ -115,7 +115,7 @@ class PretrainArgparser(Tap):
     depth_loss: Optional[str] = "l1"  # ["l1", "mse"]
 
     pretrained_weights: Optional[str] = None
-    pretrained_backbone: Optional[str] = None
+    pretrained_backbone: Optional[str] = None  # ["multi-vit", "mae"]
 
     lr_scale: Optional[float] = 1.0
 

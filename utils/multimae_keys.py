@@ -1004,4 +1004,5 @@ def get_keys_by_pretrained_backbone_name(pretrained_backbone_name: str) -> List[
     if pretrained_backbone_name == "huge-mae":
         return HUGE_MAE_PRETRAINED_KEYS
 
-    raise Exception(f"Unsupported pretrained backbone name {pretrained_backbone_name}")
+    print(f"Unsupported pretrained backbone name {pretrained_backbone_name}")
+    return []
