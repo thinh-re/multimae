@@ -20,7 +20,7 @@ class PretrainArgparser(Tap):
     # Task parameters
     in_domains: Optional[str] = "rgb-depth"
     out_domains: Optional[str] = "rgb-depth"
-    standardize_depth: Optional[bool] = False
+    standardize_depth: Optional[bool] = True
     extra_norm_pix_loss: Optional[bool] = True
 
     # Model parameters
