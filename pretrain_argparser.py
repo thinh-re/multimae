@@ -120,6 +120,8 @@ class PretrainArgparser(Tap):
 
     lr_scale: Optional[float] = 1.0
 
+    data_augmentation_version: Optional[int] = 1
+
 
 def get_args() -> PretrainArgparser:
     config_parser = parser = PretrainArgparser(

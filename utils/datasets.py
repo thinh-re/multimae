@@ -13,13 +13,18 @@
 # --------------------------------------------------------
 
 import random
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from torch import Tensor
+import torchvision.transforms.functional as transformsF
+from torchvision.transforms import InterpolationMode
+import torch.nn.functional as F
 from torchvision import datasets, transforms
+from PIL import Image
+import albumentations
 
 from pretrain_argparser import PretrainArgparser
 from utils import create_transform
@@ -101,6 +106,9 @@ class DataAugmentationForMultiMAE(object):
         self.input_size = args.input_size
         self.hflip = args.hflip
         self.depth_range = args.depth_range
+        self.du = None
+        if args.data_augmentation_version == 2:
+            self.du = DataAugmentationV2(self.input_size, ["depth", "rgb"], ["depth", "rgb"])
 
     def __call__(self, task_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
         if not self.eval_mode:
@@ -126,28 +134,59 @@ class DataAugmentationForMultiMAE(object):
                 if flip:
                     task_dict[task] = TF.hflip(task_dict[task])
 
-        # Convert to Tensor
-        for task in task_dict:
-            if task in ["depth"]:
-                if self.eval_mode:
+        if self.du is None:
+            for task in task_dict:
+                if task in ["depth"]:
+                    if self.eval_mode:
+                        img = TF.to_tensor(task_dict[task])
+                        img = TF.center_crop(img, min(img.shape[1:]))
+                        img = TF.resize(
+                            img,
+                            self.input_size,
+                            interpolation=TF.InterpolationMode.BICUBIC,
+                        )
+                    else:
+                        img = torch.Tensor(np.array(task_dict[task]) / self.depth_range)
+                        img = img.unsqueeze(0)  # 1 x H x W
+                elif task in ["rgb"]:
                     img = TF.to_tensor(task_dict[task])
-                    img = TF.center_crop(img, min(img.shape[1:]))
-                    img = TF.resize(
-                        img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC
-                    )
-                else:
-                    img = torch.Tensor(np.array(task_dict[task]) / self.depth_range)
-                    img = img.unsqueeze(0)  # 1 x H x W
-            elif task in ["rgb"]:
-                img = TF.to_tensor(task_dict[task])
-                if self.eval_mode:
-                    img = TF.center_crop(img, min(img.shape[1:]))
-                    img = TF.resize(
-                        img, self.input_size, interpolation=TF.InterpolationMode.BICUBIC
-                    )
-                img = TF.normalize(img, mean=self.rgb_mean, std=self.rgb_std)
+                    if self.eval_mode:
+                        img = TF.center_crop(img, min(img.shape[1:]))
+                        img = TF.resize(
+                            img,
+                            self.input_size,
+                            interpolation=TF.InterpolationMode.BICUBIC,
+                        )
+                    img = TF.normalize(img, mean=self.rgb_mean, std=self.rgb_std)
 
-            task_dict[task] = img
+                task_dict[task] = img
+        else:
+            if self.eval_mode:
+                for task in task_dict:
+                    if task in ["depth"]:
+                        img = TF.to_tensor(task_dict[task])
+                        img = TF.center_crop(img, min(img.shape[1:]))
+                        img = TF.resize(
+                            img,
+                            self.input_size,
+                            interpolation=TF.InterpolationMode.BICUBIC,
+                        )
+                    elif task in ["rgb"]:
+                        img = TF.to_tensor(task_dict[task])
+                        img = TF.center_crop(img, min(img.shape[1:]))
+                        img = TF.resize(
+                            img,
+                            self.input_size,
+                            interpolation=TF.InterpolationMode.BICUBIC,
+                        )
+                        img = TF.normalize(img, mean=self.rgb_mean, std=self.rgb_std)
+
+                    task_dict[task] = img
+            else:
+                assert "depth" in task_dict and "rgb" in task_dict
+                depth = task_dict["depth"]
+                rgb = task_dict["rgb"]
+                task_dict["rgb"], task_dict["depth"], _ = self.du.forward(rgb, depth)
 
         return task_dict
 
@@ -156,6 +195,252 @@ class DataAugmentationForMultiMAE(object):
         repr += "  transform = %s,\n" % str(self.transform)
         repr += ")"
         return repr
+
+
+def random_choice(p: float) -> bool:
+    """Return True if random float <= p"""
+    return random.random() <= p
+
+
+class SquarePad:
+    def __init__(self, fill_value=0.0):
+        self.fill_value = fill_value
+
+    def __call__(self, image: Image) -> Image:
+        _, w, h = image.shape
+        max_wh = np.max([w, h])
+        wp = int((max_wh - w) / 2)
+        hp = int((max_wh - h) / 2)
+        padding = (hp, hp, wp, wp)
+        image = F.pad(image, padding, value=self.fill_value, mode="constant")
+        return image
+
+
+class DataAugmentationV2(torch.nn.Module):
+    def __init__(
+        self,
+        image_size: int,
+        inputs: List[str],
+        outputs: List[str],
+        is_padding=True,
+    ):
+        super(DataAugmentationV2, self).__init__()
+        self.image_size = image_size
+        self.is_padding = is_padding
+        self.inputs = inputs
+        self.outputs = outputs
+
+        self.to_tensor = transforms.ToTensor()
+        self.to_image = transforms.ToPILImage()
+        self.square_pad_0 = SquarePad(fill_value=0.0)  # for rgb, gt
+        self.square_pad_1 = SquarePad(fill_value=1.0)  # for depth
+        self.resize = transforms.Resize((self.image_size, self.image_size))
+
+        self.random_perspective_0 = transforms.RandomPerspective(
+            distortion_scale=0.2, p=1.0, fill=0.0
+        )
+        self.random_perspective_1 = transforms.RandomPerspective(
+            distortion_scale=0.2, p=1.0, fill=255
+        )
+
+        self.longest_max_size = (
+            albumentations.augmentations.geometric.resize.LongestMaxSize(
+                max_size=self.image_size, p=1
+            )
+        )
+
+        # RGB, p = 0.5
+        self.transform_color_jitter = transforms.ColorJitter(brightness=0.5, hue=0.3)
+
+        # RGB, p = 1.0
+        self.transform_contrast_sharpness = transforms.Compose(
+            [
+                transforms.RandomAutocontrast(p=0.5),
+                transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
+            ]
+        )
+
+        self.normalize_image = transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+
+    def no_pad_resize(self, lst: List[Tensor]) -> List[Tensor]:
+        return [self.resize(e) for e in lst]
+
+    def pad_resize(self, lst: List[Tensor]) -> List[Tensor]:
+        gt: Tensor = None
+        if len(lst) == 3:
+            image, depth, gt = lst
+        else:
+            image, depth = lst
+
+        image = self.to_tensor(image)
+        image = self.square_pad_0(image)
+        image = self.resize(image)
+        image = self.to_image(image)
+
+        if gt is not None:
+            gt = self.to_tensor(gt)
+            gt = self.square_pad_0(gt)
+            gt = self.resize(gt)
+            gt = self.to_image(gt)
+
+        depth = self.to_tensor(depth)
+        depth = self.square_pad_1(depth)
+        depth = self.resize(depth)
+        depth = self.to_image(depth)
+
+        if gt is not None:
+            return [image, depth, gt]
+        else:
+            return [image, depth]
+
+    def process_transform_to_tensor(self, lst: List[Tensor]) -> List[Tensor]:
+        return [self.to_tensor(e) for e in lst]
+
+    def random_horizontal_flip(self, lst: List[Tensor], p=0.5) -> List[Tensor]:
+        if random_choice(p=p):
+            return [transformsF.hflip(e) for e in lst]
+        return lst
+
+    def random_vertical_flip(self, lst: List[Tensor], p=0.5) -> List[Tensor]:
+        if random_choice(p=p):
+            return [transformsF.vflip(e) for e in lst]
+        return lst
+
+    def random_rotate(self, lst: List[Tensor], p=0.3) -> List[Tensor]:
+        if random_choice(p=p):
+            angle = transforms.RandomRotation.get_params(degrees=(0, 90))
+
+            rs: List[Tensor] = []
+            for i, e in enumerate(lst):
+                if i == 1:
+                    rs.append(
+                        transformsF.rotate(
+                            e, angle, InterpolationMode.BICUBIC, fill=255
+                        )
+                    )
+                else:
+                    rs.append(transformsF.rotate(e, angle, InterpolationMode.BICUBIC))
+            return rs
+        return lst
+
+    def random_resized_crop(self, lst: List[Tensor], p=0.3) -> List[Tensor]:
+        if random_choice(p=p):
+            i, j, h, w = transforms.RandomResizedCrop.get_params(
+                lst[0], scale=(0.5, 2.0), ratio=(0.75, 1.3333333333333333)
+            )
+            return [
+                transformsF.resized_crop(
+                    e,
+                    i,
+                    j,
+                    h,
+                    w,
+                    [self.image_size, self.image_size],
+                    InterpolationMode.BICUBIC,
+                )
+                for e in lst
+            ]
+        return lst
+
+    def random_gaussian_blur(
+        self,
+        tensor: Tensor,
+        p=0.5,
+        max_kernel_size: int = 19,  # must be an odd positive integer
+    ) -> Tensor:
+        if random_choice(p=p):
+            kernel_size = random.randrange(1, max_kernel_size, 2)
+            return transformsF.gaussian_blur(tensor, kernel_size=kernel_size)
+        return tensor
+
+    def color_jitter(self, tensor: Tensor, p=0.5) -> Tensor:
+        if random_choice(p=p):
+            return self.transform_color_jitter(tensor)
+        return tensor
+
+    def random_maskout_depth(self, tensor: Tensor, p=0.5) -> Tensor:
+        if random_choice(p=p):
+            _, h, w = tensor.shape
+            xs = np.random.choice(w, 2)
+            ys = np.random.choice(h, 2)
+            tensor[:, min(ys) : max(ys), min(xs) : max(xs)] = torch.ones(
+                (max(ys) - min(ys), max(xs) - min(xs))
+            )
+            return tensor
+        return tensor
+
+    def random_perspective(self, lst: List[Tensor], p=0.2) -> List[Tensor]:
+        if random_choice(p=p):
+            gt: Tensor = None
+            if len(lst) == 3:
+                image, depth, gt = lst
+            else:
+                image, depth = lst
+
+            image = self.random_perspective_0(image)
+
+            if gt is not None:
+                gt = self.random_perspective_0(gt)
+
+            depth = self.random_perspective_1(depth)
+
+            if gt is not None:
+                return [image, depth, gt]
+            else:
+                return [image, depth]
+        return lst
+
+    def preprocessing(self, images: Tensor, depths: Tensor) -> Tuple[Tensor, Tensor]:
+        images, depths = self.resize(images), self.resize(depths)
+        return self.normalize_image(images), depths
+
+    def forward(
+        self,
+        image: Image.Image,
+        depth: Image.Image,
+        gt: Optional[Image.Image] = None,
+        is_transform: Optional[bool] = True,
+    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
+        lst = [image, depth, gt] if gt is not None else [image, depth]
+
+        if not is_transform:
+            # Dev or Test
+            if self.is_padding:
+                lst = self.pad_resize(lst)
+            else:
+                lst = self.no_pad_resize(lst)
+            lst = self.process_transform_to_tensor(lst)
+            if gt is not None:
+                image, depth, gt = lst
+                # gt[gt > 0.0] = 1.0
+            else:
+                image, depth = lst
+            image = self.normalize_image(image)
+            return image, depth, gt
+
+        lst = self.random_horizontal_flip(lst)
+        if random_choice(p=0.2):
+            lst = self.pad_resize(lst)
+        else:
+            lst = self.no_pad_resize(lst)
+        lst = self.random_perspective(lst, p=0.2)
+        lst = self.random_rotate(lst)
+        lst = self.random_resized_crop(lst)
+        lst = self.process_transform_to_tensor(lst)
+
+        if gt is not None:
+            image, depth, gt = lst
+        else:
+            image, depth = lst
+
+        image = self.color_jitter(image)
+        image = self.transform_contrast_sharpness(image)
+        image = self.random_gaussian_blur(image, p=0.5, max_kernel_size=19)
+        if "depth" in self.inputs:
+            depth = self.random_gaussian_blur(depth, p=0.5, max_kernel_size=36)
+        image = self.normalize_image(image)
+
+        return image, depth, gt
 
 
 def build_pretraining_dataset(args: PretrainArgparser):

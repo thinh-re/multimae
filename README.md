@@ -8,7 +8,7 @@
 ## Train
 
 ```bash
-CUDA_AVAILABLE_DEVICES=0,3 torchrun --nproc_per_node=2 run_pretraining_multimae.py --config cfgs/pretrain/v1.0.15-pr.yaml
+CUDA_AVAILABLE_DEVICES=2,3 torchrun --nproc_per_node=2 run_pretraining_multimae.py --config cfgs/pretrain/v1.0.16-pr.yaml
 ```
 
 ## Results
