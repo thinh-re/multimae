@@ -14,7 +14,7 @@ data_paths:
   - 'datasets/nyu-depth-v2'
 
 # Wandb logging
-log_wandb: False # Set to True to log to Weights & Biases
+log_wandb: True # Set to True to log to Weights & Biases
 wandb_project: PretrainSMultiMAE
 output_dir: './output/pretrain' # Change directory if needed
 normalized_depth: True
