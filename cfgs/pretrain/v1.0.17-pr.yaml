@@ -27,4 +27,6 @@ lr_scale: 0.001
 data_augmentation_version: 2
 gpus:
   - 3
-num_workers: 32
+  - 2
+  - 1
+num_workers: 64
