@@ -126,6 +126,7 @@ def save_model(
                 to_save["model_ema"] = get_state_dict(model_ema)
 
             save_on_master(to_save, checkpoint_path)
+            print("save_on_master", checkpoint_path)
         if is_main_process():
             save_model_for_downstream_tasks(args, epoch, model_without_ddp)
     else:
@@ -148,13 +149,13 @@ def save_model_for_downstream_tasks(
     checkpoint_path = os.path.join(
         output_dir, f"multimae_{args.wandb_run_name}_e{epoch}.pth"
     )
+    print("save_model_for_downstream_tasks", checkpoint_path)
 
     state_dict: OrderedDict[str, Tensor] = model_without_ddp.state_dict()
     selected_state_dict = OrderedDict()
     for key, value in state_dict.items():
         if key in MULTIVIT_PRETRAINED_KEYS:
             selected_state_dict[key] = value
-    print(selected_state_dict.keys())
     torch.save(OrderedDict(model=selected_state_dict), checkpoint_path)
 
 
