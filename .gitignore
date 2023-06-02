@@ -20,3 +20,4 @@ env/
 images
 tmp
 datasets
+wandb_cache
