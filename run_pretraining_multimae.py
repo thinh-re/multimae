@@ -22,17 +22,17 @@ import time
 import warnings
 from functools import partial
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
+import logging
 
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from einops import rearrange
-from torch import Tensor, nn
+from torch import Tensor
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
-from tqdm import tqdm
+from torch.utils.data import DataLoader, DistributedSampler
 
 import utils
 from demo.app import log_inference
@@ -48,6 +48,7 @@ from utils.datasets import (
     build_multimae_pretraining_dev_dataset_v2,
     build_multimae_pretraining_train_dataset_v2,
 )
+from utils.lr import BaseLR, LinearLRRestart
 from utils.optim_factory import create_optimizer
 
 CPU_DEVICE = torch.device("cpu")
@@ -141,12 +142,10 @@ def get_model(args: PretrainArgparser) -> MultiMAE:
 def main(args: PretrainArgparser):
     utils.init_distributed_mode(args)
 
-    # Fix the seed for reproducibility
+    # Set the seed fixed for reproducibility
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
-    # random.seed(seed)
-
     cudnn.benchmark = True
 
     if not args.show_user_warnings:
@@ -177,29 +176,19 @@ def main(args: PretrainArgparser):
     dataset_train = build_multimae_pretraining_train_dataset_v2(args)
     dataset_dev = build_multimae_pretraining_dev_dataset_v2(args)
 
-    if True:  # args.distributed:
-        world_size = utils.get_world_size()
-        global_rank = utils.get_rank()
-        print("global_rank", global_rank)
-        sampler_rank = global_rank
-        num_training_steps_per_epoch = (
-            len(dataset_train) // args.batch_size // world_size
-        )
+    world_size = utils.get_world_size()
+    global_rank = utils.get_rank()
+    print("global_rank", global_rank)
+    sampler_rank = global_rank
+    num_training_steps_per_epoch = len(dataset_train) // args.batch_size // world_size
 
-        sampler_train = DistributedSampler(
-            dataset_train,
-            num_replicas=world_size,
-            rank=sampler_rank,
-            shuffle=True,
-            drop_last=True,
-        )
-        # sampler_dev = DistributedSampler(
-        #     dataset_dev, num_replicas=num_tasks,
-        #     rank=sampler_rank, shuffle=False, drop_last=False,
-        # )
-        print("Sampler_train = %s" % str(sampler_train))
-    else:
-        sampler_train = RandomSampler(dataset_train)
+    sampler_train = DistributedSampler(
+        dataset_train,
+        num_replicas=world_size,
+        rank=sampler_rank,
+        shuffle=True,
+        drop_last=True,
+    )
 
     device = torch.device(args.device)
     print(args)
@@ -212,13 +201,6 @@ def main(args: PretrainArgparser):
         pin_memory=args.pin_mem,
         drop_last=True,
     )
-    # data_loader_dev = DataLoader(
-    #     dataset_dev, sampler=sampler_dev,
-    #     batch_size=args.batch_size,
-    #     num_workers=args.num_workers,
-    #     pin_memory=args.pin_mem,
-    #     drop_last=False,
-    # )
 
     model.to(device)
     model_without_ddp = model
@@ -245,27 +227,36 @@ def main(args: PretrainArgparser):
     optimizer = create_optimizer(args, {"model": model_without_ddp})
     loss_scaler = NativeScaler()
 
-    print("Use step level LR & WD scheduler!")
-    lr_schedule_values = utils.cosine_scheduler(
-        args.lr,
-        args.min_lr,
-        args.epochs,
-        num_training_steps_per_epoch,
-        warmup_epochs=args.warmup_epochs,
-        warmup_steps=args.warmup_steps,
-    )
+    if args.lr_strategy_version == 1:
+        print("Use step level LR & WD scheduler!")
+        lr_schedule_values = utils.cosine_scheduler(
+            args.lr,
+            args.min_lr,
+            args.epochs,
+            num_training_steps_per_epoch,
+            warmup_epochs=args.warmup_epochs,
+            warmup_steps=args.warmup_steps,
+        )
+        lr_policy: Optional[BaseLR] = None
+    elif args.lr_strategy_version == 2:
+        lr_schedule_values = None
+        lr_policy = LinearLRRestart(args.blr, args.elr, args.num_epochs_every_restart)
+
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay
-    wd_schedule_values = utils.cosine_scheduler(
-        args.weight_decay,
-        args.weight_decay_end,
-        args.epochs,
-        num_training_steps_per_epoch,
-    )
-    print(
-        "Max WD = %.7f, Min WD = %.7f"
-        % (max(wd_schedule_values), min(wd_schedule_values))
-    )
+    if args.is_wd_schedule:
+        wd_schedule_values = utils.cosine_scheduler(
+            args.weight_decay,
+            args.weight_decay_end,
+            args.epochs,
+            num_training_steps_per_epoch,
+        )
+        print(
+            "Max WD = %.7f, Min WD = %.7f"
+            % (max(wd_schedule_values), min(wd_schedule_values))
+        )
+    else:
+        wd_schedule_values = None
 
     utils.auto_load_model(
         args=args,
@@ -294,6 +285,8 @@ def main(args: PretrainArgparser):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
+        if args.lr_strategy_version == 2:
+            lr_policy.set_epoch(epoch + 1, len(data_loader_train))
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
         if log_writer is not None:
@@ -315,11 +308,13 @@ def main(args: PretrainArgparser):
             num_encoded_tokens=args.num_encoded_tokens,
             in_domains=args.in_domains,
             loss_on_unmasked=args.loss_on_unmasked,
+            lr_policy=lr_policy,
             alphas=args.alphas,
             sample_tasks_uniformly=args.sample_tasks_uniformly,
             standardize_depth=args.standardize_depth,
             extra_norm_pix_loss=args.extra_norm_pix_loss,
             fp32_output_adapters=args.fp32_output_adapters.split("-"),
+            lr_strategy_version=args.lr_strategy_version,
         )
         if log_writer is not None:
             log_writer.update(
@@ -399,6 +394,7 @@ def train_one_epoch(
     log_writer: Optional[utils.WandbLogger] = None,
     start_steps: Optional[int] = None,
     lr_schedule_values: Optional[np.ndarray] = None,
+    lr_policy: Optional[BaseLR] = None,
     wd_schedule_values: Optional[np.ndarray] = None,
     num_encoded_tokens: int = 196,
     in_domains: List[str] = [],
@@ -408,6 +404,7 @@ def train_one_epoch(
     standardize_depth: bool = True,
     extra_norm_pix_loss: bool = False,
     fp32_output_adapters: List[str] = [],
+    lr_strategy_version: int = 1,
 ):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -424,10 +421,22 @@ def train_one_epoch(
         x: Dict[str, Tensor] = x
         # assign learning rate & weight decay for each step
         it = start_steps + step  # global training iteration
-        if lr_schedule_values is not None or wd_schedule_values is not None:
+        if lr_strategy_version == 1:
+            if lr_schedule_values is not None or wd_schedule_values is not None:
+                for i, param_group in enumerate(optimizer.param_groups):
+                    if lr_schedule_values is not None:
+                        param_group["lr"] = (
+                            lr_schedule_values[it] * param_group["lr_scale"]
+                        )
+                    if (
+                        wd_schedule_values is not None
+                        and param_group["weight_decay"] > 0
+                    ):
+                        param_group["weight_decay"] = wd_schedule_values[it]
+        elif lr_strategy_version == 2:
+            assert lr_policy is not None
             for i, param_group in enumerate(optimizer.param_groups):
-                if lr_schedule_values is not None:
-                    param_group["lr"] = lr_schedule_values[it] * param_group["lr_scale"]
+                param_group["lr"] = lr_policy.get_lr(step) * param_group["lr_scale"]
                 if wd_schedule_values is not None and param_group["weight_decay"] > 0:
                     param_group["weight_decay"] = wd_schedule_values[it]
 

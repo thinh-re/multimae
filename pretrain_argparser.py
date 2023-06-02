@@ -54,12 +54,15 @@ class PretrainArgparser(Tap):
         float
     ] = None  # Skip update if gradient norm larger than threshold
     momentum: Optional[float] = 0.9
+    is_wd_schedule: Optional[bool] = True
     weight_decay: Optional[float] = 0.05
     weight_decay_end: Optional[float] = None
     decoder_decay: Optional[float] = None
     blr: Optional[float] = 1e-4
+    elr: Optional[float] = 1e-11
     warmup_lr: Optional[float] = 1e-6
     min_lr: Optional[float] = 0.0
+    lr_strategy_version: Optional[int] = 1
     warmup_epochs: Optional[int] = 40
     warmup_steps: Optional[int] = -1
     fp32_output_adapters: Optional[str] = ""
@@ -107,6 +110,7 @@ class PretrainArgparser(Tap):
     distributed: Optional[bool] = False
     dist_backend: Optional[str] = "nccl"
     lr: Optional[float] = 1e3
+    num_epochs_every_restart: Optional[int] = 100
     no_lr_scale_list: Optional[List[float]] = []
     normalized_depth: Optional[bool] = False
 
