@@ -1,5 +1,5 @@
 # Train
-epochs: 200
+epochs: 1000
 blr: 1e-3 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
 elr: 1e-8
 lr_strategy_version: 2
@@ -29,4 +29,6 @@ lr_scale: 0.001
 data_augmentation_version: 1
 gpus:
   - 3
+  - 2
+  - 1
 num_workers: 32
