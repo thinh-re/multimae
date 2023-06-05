@@ -1,0 +1,34 @@
+# Train
+epochs: 1000
+blr: 1e-3 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
+elr: 1e-8
+lr_strategy_version: 2
+is_wd_schedule: False
+# warmup_lr: 0.000001 # 1e-6
+# min_lr: 0.
+# warmup_epochs: 10
+batch_size: 312 # 136 # 256 <---------------------
+save_ckpt_freq: 3
+
+# Data
+data_paths:
+  - 'datasets/multimae-v1'
+  - 'datasets/nyu-depth-v2'
+
+# Wandb logging
+log_wandb: True # Set to True to log to Weights & Biases
+wandb_project: PretrainSMultiMAE
+output_dir: './output/pretrain' # Change directory if needed
+normalized_depth: True
+
+depth_range: 256
+depth_loss: "l1"
+pretrained_weights: 'pretrained_weights/mae-b_dec512d8b_1600e_multivit-c477195b.pth'
+pretrained_backbone: 'mae'
+lr_scale: 0.001
+data_augmentation_version: 1
+gpus:
+  - 3
+  - 2
+  - 1
+num_workers: 32
