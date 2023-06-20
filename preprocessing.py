@@ -27,13 +27,15 @@ for dataset_name in dataset_names:
         depth = Image.open(depth_path)
         depth = np.array(depth)
 
-        depth = normalize(np.array(depth)) * 256
-        depth = depth.astype(np.uint8)
-        depth = Image.fromarray(depth)
-        depth.save(depth_path)
+        if depth.dtype == np.int32:
+            depth = depth / 2**8
+            depth = depth.astype(np.uint8)
+            depth = Image.fromarray(depth)
+            print(depth_path)
+            depth.save(depth_path)
 
-        max_lst.append(np.max(depth))
-        min_lst.append(np.min(depth))
+    #     max_lst.append(np.max(depth))
+    #     min_lst.append(np.min(depth))
 
-    print("max", np.max(max_lst))
-    print("min", np.min(min_lst))
+    # print("max", np.max(max_lst))
+    # print("min", np.min(min_lst))
