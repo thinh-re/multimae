@@ -1,3 +1,4 @@
+import math
 from typing import List, Optional
 
 import os
@@ -18,8 +19,8 @@ class PretrainArgparser(Tap):
     ] = 20  # Checkpoint saving frequency in epochs (default: %(default)s)')
 
     # Task parameters
-    in_domains: Optional[str] = "rgb-depth"
-    out_domains: Optional[str] = "rgb-depth"
+    in_domains: Optional[str] = ["rgb", "depth"]
+    out_domains: Optional[str] = ["rgb", "depth"]
     standardize_depth: Optional[bool] = True
     extra_norm_pix_loss: Optional[bool] = True
 
@@ -110,9 +111,10 @@ class PretrainArgparser(Tap):
     distributed: Optional[bool] = False
     dist_backend: Optional[str] = "nccl"
     lr: Optional[float] = 1e3
-    num_epochs_every_restart: Optional[int] = 100
+    num_epochs_every_restart: Optional[int] = 500
     no_lr_scale_list: Optional[List[float]] = []
     normalized_depth: Optional[bool] = False
+    devices: Optional[List[int]] = [0, 1, 2, 3]
 
     version: Optional[str] = ""
 
@@ -125,6 +127,21 @@ class PretrainArgparser(Tap):
     lr_scale: Optional[float] = 1.0
 
     data_augmentation_version: Optional[int] = 1
+    num_training_samples_per_epoch: Optional[int] = 0
+
+    def todict(self):
+        d = dict()
+        for k, v in self.__dict__.items():
+            if not k.startswith("_"):
+                d[k] = v
+        return d
+
+    @property
+    def total_iters_per_epoch(self):
+        return math.ceil(
+            (self.num_training_samples_per_epoch)
+            / (self.batch_size * len(self.devices))
+        )
 
 
 def get_args() -> PretrainArgparser:
@@ -149,6 +166,10 @@ def get_args() -> PretrainArgparser:
         args.output_dir,
         args.version,
     )
+
+    # args.in_domains = args.in_domains.split("-")
+    # args.out_domains = args.out_domains.split("-")
+    args.all_domains = list(set(args.in_domains) | set(args.out_domains))
 
     return args
 

@@ -5,3 +5,5 @@ albumentations
 wandb
 typed-argument-parser
 matplotlib
+pytorch-lightning
+tensorboard

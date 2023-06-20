@@ -83,6 +83,6 @@ class LinearLRRestart(BaseLR):
     def get_lr(self, cur_iter: int) -> float:
         """Note: the beginning cur_iter is 0"""
         return self.a * cur_iter + self.b
-    
-    def __getitem__(self, cur_iter: int) -> float:
+
+    def __item__(self, cur_iter: int) -> float:
         return self.get_lr(cur_iter)

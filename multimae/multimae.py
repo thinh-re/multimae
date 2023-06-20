@@ -495,7 +495,6 @@ class MultiViT(MultiMAE):
     """
 
     def process_input(self, x):
-
         # If input x is a Tensor, assume it's RGB
         x = {"rgb": x} if isinstance(x, torch.Tensor) else x
         # Need image size for tokens->image reconstruction

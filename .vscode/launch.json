@@ -15,6 +15,18 @@
                 "--config",
                 "cfgs/pretrain/local.yaml"
             ]
+        },
+        {
+            "name": "Run pretrain v2",
+            "type": "python",
+            "request": "launch",
+            "program": "run_pretraining_multimae_v2.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--config",
+                "cfgs/pretrain/v2.0.0-pr.yaml"
+            ]
         }
     ]
 }

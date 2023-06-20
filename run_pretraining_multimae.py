@@ -151,9 +151,9 @@ def main(args: PretrainArgparser):
     if not args.show_user_warnings:
         warnings.filterwarnings("ignore", category=UserWarning)
 
-    args.in_domains = args.in_domains.split("-")
-    args.out_domains = args.out_domains.split("-")
-    args.all_domains = list(set(args.in_domains) | set(args.out_domains))
+    # args.in_domains = args.in_domains.split("-")
+    # args.out_domains = args.out_domains.split("-")
+    # args.all_domains = list(set(args.in_domains) | set(args.out_domains))
 
     model = get_model(args)
 
