@@ -31,7 +31,7 @@ gpus:
   - 3
   - 2
   - 1
-num_workers: 32
+num_workers: 16
 devices: [1]
 check_val_every_n_epoch: 10
 weight_decay: 0.8

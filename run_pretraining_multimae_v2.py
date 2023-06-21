@@ -9,11 +9,11 @@ from torch import Tensor, nn
 import os
 
 import pytorch_lightning as pl
-from torch.optim.lr_scheduler import LambdaLR, LRScheduler
+from torch.optim.lr_scheduler import LambdaLR
 from torch.optim import AdamW, Optimizer
 from data_augmentation import DataAugmentationV6
 from mae_not_pretrained_keys import MAE_NOT_PRETRAINED_KEYS
-from multimae.criterion import MaskedCrossEntropyLoss, MaskedL1Loss, MaskedMSELoss
+from multimae.criterion import MaskedMSELoss
 from torch.utils.data import DataLoader
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -90,6 +90,7 @@ class ModelPL(pl.LightningModule):
         if self.args.pretrained_weights:
             checkpoint = torch.load(self.args.pretrained_weights)
             self.model.load_state_dict(checkpoint["model"], strict=False)
+            print("Load pretrained weights from", self.args.pretrained_weights)
 
     def training_step(self, batch: Tuple[Tensor, Tensor, Tensor, Any], batch_idx):
         opt: Optimizer = self.optimizers()
@@ -106,7 +107,7 @@ class ModelPL(pl.LightningModule):
 
         # 1. Prepare input dict
         images, depths = batch[0]
-        tasks_dict = {"rgb": images, "depths": depths}
+        tasks_dict = {"rgb": images, "depth": depths}
         input_dict = {
             task: tensor
             for task, tensor in tasks_dict.items()
@@ -246,7 +247,7 @@ class MDataset(Dataset):
             self.data.extend(raw_data["samples"])
 
         if self.max_samples is not None:
-            self.data[: self.max_samples]
+            self.data = self.data[: self.max_samples]
 
     def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
         data = self.data[index]
@@ -270,6 +271,9 @@ class DataPL(pl.LightningDataModule):
         self.dev_dataset = MDataset(
             args.input_size, args.data_paths, split="validation", max_samples=100
         )
+
+        print("TrainDataset", len(self.train_dataset))
+        print("DevDataset", len(self.dev_dataset))
 
         args.num_training_samples_per_epoch = len(self.train_dataset)
 
