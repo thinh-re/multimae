@@ -58,7 +58,9 @@ class ModelPL(pl.LightningModule):
     def __init__(self, args: PretrainArgparser):
         super().__init__()
 
-        self.lr_policy = LinearLRRestart(1.0, 1.0, args.num_epochs_every_restart)
+        self.lr_policy = LinearLRRestart(
+            1.0, args.elr / args.blr, args.num_epochs_every_restart
+        )
         self.lr_policy.set_epoch(1, args.total_iters_per_epoch)
         self.args = args
 
