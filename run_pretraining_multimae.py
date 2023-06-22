@@ -13,6 +13,7 @@
 # https://github.com/BUPT-PRIV/MAE-priv
 # https://github.com/facebookresearch/mae
 # --------------------------------------------------------
+from utils.logger import WandbLogger
 import datetime
 import json
 import math
@@ -267,7 +268,7 @@ def main(args: PretrainArgparser):
     )
 
     if global_rank == 0 and args.log_wandb:
-        log_writer = utils.WandbLogger(args)
+        log_writer = WandbLogger(args)
         log_writer.set_step(0)
     else:
         log_writer = None

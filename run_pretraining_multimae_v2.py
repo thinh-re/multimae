@@ -1,11 +1,12 @@
-from collections import defaultdict
+from pytorch_lightning.loggers import WandbLogger
+
 from logging import Logger
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import json
 import torch
-from torch import Tensor, nn
+from torch import Tensor
 import os
 
 import pytorch_lightning as pl
@@ -343,6 +344,15 @@ def main(args: PretrainArgparser):
         default_hp_metric=False,
     )
     loggers.append(tb_logger)
+
+    wb_logger = WandbLogger(
+        project=args.wandb_project,
+        id=args.wandb_run_name,
+        name=args.wandb_run_name,
+        config=args.todict(),
+        resume="auto",
+    )
+    loggers.append(wb_logger)
 
     lr_callback = LearningRateMonitor(logging_interval="step")
 
