@@ -1,13 +1,13 @@
 # Train
 epochs: 1000
-blr: 1e-3 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
+blr: 1e-5 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
 elr: 1e-8
 lr_strategy_version: 2
 is_wd_schedule: False
 # warmup_lr: 0.000001 # 1e-6
 # min_lr: 0.
 # warmup_epochs: 10
-batch_size: 312 # 136 # 256 <---------------------
+batch_size: 4 # 312 # 136 # 256 <---------------------
 save_ckpt_freq: 3
 
 # Data
@@ -31,7 +31,8 @@ gpus:
   - 3
   - 2
   - 1
-num_workers: 16
-devices: [1]
+num_workers: 4
+devices: [1,2,3]
 check_val_every_n_epoch: 10
 weight_decay: 0.8
+clip_grad: 1.0

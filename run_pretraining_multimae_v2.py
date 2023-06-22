@@ -162,9 +162,12 @@ class ModelPL(pl.LightningModule):
         # automatically applies scaling, etc...
         self.manual_backward(loss)
 
-        self.clip_gradients(
-            opt, gradient_clip_val=self.args.clip_grad, gradient_clip_algorithm="norm"
-        )
+        if self.args.clip_grad is not None:
+            self.clip_gradients(
+                opt,
+                gradient_clip_val=self.args.clip_grad,
+                gradient_clip_algorithm="norm",
+            )
 
         opt.step()
         lr.step()
@@ -189,12 +192,17 @@ class ModelPL(pl.LightningModule):
             # Pretrained
             {"params": [], "lr": self.args.blr, "lr_scale": self.args.lr_scale},
         ]
-        d: Dict[str, List[Dict]] = defaultdict(list)
         for k, v in self.model.named_parameters():
             if k in MAE_NOT_PRETRAINED_KEYS:
                 grouped_parameters[0]["params"].append(v)
             else:
                 grouped_parameters[1]["params"].append(v)
+
+        for group in grouped_parameters:
+            print(
+                f"Group lr_scale={group['lr_scale']}",
+                sum([p.numel() for p in group["params"]]),
+            )
 
         optimizer = AdamW(
             grouped_parameters,
