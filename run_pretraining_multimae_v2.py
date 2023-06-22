@@ -189,9 +189,9 @@ class ModelPL(pl.LightningModule):
         """
         grouped_parameters = [
             # Not-pretrained
-            {"params": [], "lr": self.args.blr, "lr_scale": 1.0},
-            # Pretrained
             {"params": [], "lr": self.args.blr, "lr_scale": self.args.lr_scale},
+            # Pretrained
+            {"params": [], "lr": self.args.blr, "lr_scale": 1.0},
         ]
         for k, v in self.model.named_parameters():
             if k in MAE_NOT_PRETRAINED_KEYS:
