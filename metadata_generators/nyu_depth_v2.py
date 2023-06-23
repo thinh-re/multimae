@@ -2,6 +2,10 @@ import glob
 import os
 from typing import Dict, List
 import json
+import sys
+import os
+
+sys.path.append(os.getcwd())
 
 ########################################################################
 train_dir = "nyu_data/data/nyu2_train"

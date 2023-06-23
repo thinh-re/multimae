@@ -1,4 +1,8 @@
 import os, glob
+import sys
+import os
+
+sys.path.append(os.getcwd())
 
 rgbs = glob.glob(os.path.join("rgb", "sod", "*"))
 rgb_exts = list(set([rgb.split(".")[-1] for rgb in rgbs]))
