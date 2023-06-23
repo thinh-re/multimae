@@ -73,7 +73,7 @@ class PretrainArgparser(Tap):
     train_interpolation: Optional[str] = "bicubic"  # (random, bilinear, bicubic)
 
     # Dataset parameters
-    data_path: Optional[str] = IMAGENET_TRAIN_PATH  # <------------
+    data_path: Optional[str] = ''  # <------------
     data_paths: Optional[List[str]] = []
     imagenet_default_mean_and_std: Optional[bool] = True
 

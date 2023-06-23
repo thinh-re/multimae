@@ -29,6 +29,10 @@ for dataset, train_ratio, dev_ratio, test_ratio in zip(
     samples = d["samples"]
     random.shuffle(samples)
 
+    for sample in samples:
+        sample["rgb"] = os.path.join(dataset, sample["rgb"])
+        sample["depth"] = os.path.join(dataset, sample["depth"])
+
     total_ratio = train_ratio + dev_ratio + test_ratio
     num_trains = int(len(samples) / total_ratio * train_ratio)
     num_devs = int(len(samples) / total_ratio * dev_ratio)

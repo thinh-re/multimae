@@ -84,6 +84,9 @@ class ModelPL(pl.LightningModule):
                 norm_pix=True,
             )
 
+        self.validation_step_outputs = []
+        self.num_dev_samples = []
+
         # This property activates manual optimization.
         self.automatic_optimization = False
 
@@ -95,21 +98,10 @@ class ModelPL(pl.LightningModule):
             self.model.load_state_dict(checkpoint["model"], strict=False)
             print("Load pretrained weights from", self.args.pretrained_weights)
 
-    def training_step(self, batch: Tuple[Tensor, Tensor, Tensor, Any], batch_idx):
-        opt: Optimizer = self.optimizers()
-        lr: LambdaLR = self.lr_schedulers()
-
-        # Different learning rate
-        # 1.0 for pretrained weights
-        # 100.0 for new weights
-        lrs = lr.get_lr()
-        for i in range(len(opt.param_groups)):
-            opt.param_groups[i]["lr"] = lrs[i] * opt.param_groups[i]["lr_scale"]
-
-        # print(opt.param_groups[0]["lr"], opt.param_groups[1]["lr"])
-
+    def forward_loss(
+        self, images: Tensor, depths: Tensor
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
         # 1. Prepare input dict
-        images, depths = batch[0]
         tasks_dict = {"rgb": images, "depth": depths}
         input_dict = {
             task: tensor
@@ -154,6 +146,22 @@ class ModelPL(pl.LightningModule):
                 )
 
         loss = sum(task_losses.values())
+        return loss, task_losses
+
+    def training_step(self, batch: Tuple[Tensor, Tensor, Tensor, Any], batch_idx):
+        opt: Optimizer = self.optimizers()
+        lr: LambdaLR = self.lr_schedulers()
+
+        # Different learning rate
+        # 1.0 for pretrained weights
+        # 100.0 for new weights
+        lrs = lr.get_lr()
+        for i in range(len(opt.param_groups)):
+            opt.param_groups[i]["lr"] = lrs[i] * opt.param_groups[i]["lr_scale"]
+
+        # print(opt.param_groups[0]["lr"], opt.param_groups[1]["lr"])
+        images, depths = batch[0]
+        loss, task_losses = self.forward_loss(images, depths)
 
         # Logging
         logging = {f"{task}_loss": l.item() for task, l in task_losses.items()}
@@ -175,6 +183,21 @@ class ModelPL(pl.LightningModule):
         opt.step()
         lr.step()
         return loss
+
+    def validation_step(self, batch: Tuple[Tensor, Tensor, Tensor, Any], batch_idx):
+        images, depths = batch
+        loss, task_losses = self.forward_loss(images, depths)
+        loss = loss.cpu()
+        num_samples = images.shape[0]
+        self.validation_step_outputs.append(loss * num_samples)
+        self.num_dev_samples.append(num_samples)
+
+    def on_validation_epoch_end(self):
+        rs = np.sum(self.validation_step_outputs) / np.sum(self.num_dev_samples)
+        print("dev_mae", rs)
+        self.log_dict({"dev_mae": rs}, sync_dist=True)
+        self.validation_step_outputs.clear()  # free memory
+        self.num_dev_samples.clear()
 
     def configure_optimizers(self) -> Any:
         optimizer = AdamW(self.parameters(), lr=self.args.blr)
@@ -235,27 +258,21 @@ class MDataset(Dataset):
     def __init__(
         self,
         input_size: int,
-        data_paths: List[str],
+        data_path: str,
         split: str = "train",
         max_samples: Optional[int] = None,
     ) -> None:
-        self.data_paths = data_paths
+        self.data_path = data_path
         self.split = split
         self.max_samples = max_samples
 
-        self.data: List[Dict[str, Any]] = []
+        raw_data = load_json(os.path.join("datasets_metadata", f"{data_path}.json"))
+        self.data: List[Dict[str, Any]] = raw_data[split]["samples"]
+        for e in self.data:
+            e["rgb"] = os.path.join("datasets", e["rgb"])
+            e["depth"] = os.path.join("datasets", e["depth"])
 
         self.data_augmentation = DataAugmentationV6(input_size)
-
-        for data_path in self.data_paths:
-            dataset_name = os.path.basename(data_path)
-            raw_data = load_json(
-                os.path.join("datasets_metadata", f"{dataset_name}.json")
-            )
-            for e in raw_data["samples"]:
-                e["rgb"] = os.path.join(data_path, e["rgb"])
-                e["depth"] = os.path.join(data_path, e["depth"])
-            self.data.extend(raw_data["samples"])
 
         if self.max_samples is not None:
             self.data = self.data[: self.max_samples]
@@ -278,9 +295,17 @@ class DataPL(pl.LightningDataModule):
         super().__init__()
         self.args = args
 
-        self.train_dataset = MDataset(args.input_size, args.data_paths, split="train")
+        self.train_dataset = MDataset(
+            args.input_size,
+            args.data_path,
+            split="train",
+            max_samples=100,  # remove this
+        )
         self.dev_dataset = MDataset(
-            args.input_size, args.data_paths, split="validation", max_samples=100
+            args.input_size,
+            args.data_path,
+            split="validation",
+            max_samples=100,  # remove this
         )
 
         print("TrainDataset", len(self.train_dataset))
@@ -306,20 +331,20 @@ class DataPL(pl.LightningDataModule):
             )
         ]
 
-    # def val_dataloader(self):
-    #     return [
-    #         DataLoader(
-    #             self.dev_dataset,
-    #             batch_size=self.args.batch_size,
-    #             num_workers=self.args.num_workers,
-    #             # If ``True``, the data loader will copy Tensors
-    #             # into device/CUDA pinned memory before returning them
-    #             pin_memory=True,
-    #             worker_init_fn=self.seed_worker,
-    #             generator=self.g,
-    #             shuffle=False,
-    #         )
-    #     ]
+    def val_dataloader(self):
+        return [
+            DataLoader(
+                self.dev_dataset,
+                batch_size=self.args.batch_size,
+                num_workers=self.args.num_workers,
+                # If ``True``, the data loader will copy Tensors
+                # into device/CUDA pinned memory before returning them
+                pin_memory=True,
+                worker_init_fn=self.seed_worker,
+                generator=self.g,
+                shuffle=False,
+            )
+        ]
 
     @staticmethod
     def seed_worker(worker_id):
@@ -359,10 +384,11 @@ def main(args: PretrainArgparser):
     lr_callback = LearningRateMonitor(logging_interval="step")
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_metric",
+        monitor="dev_mae",
+        verbose=True,
         dirpath=args.output_dir,
         filename="artifacts",
-        save_top_k=2,
+        save_top_k=1,
         save_last=True,
         mode="min",
     )

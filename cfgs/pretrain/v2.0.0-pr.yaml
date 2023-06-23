@@ -11,9 +11,10 @@ batch_size: 4 # 312 # 136 # 256 <---------------------
 save_ckpt_freq: 3
 
 # Data
-data_paths:
-  - 'datasets/multimae-v1'
-  - 'datasets/nyu-depth-v2'
+data_path: 'v1'
+# data_paths:
+#   - 'datasets/v1'
+#   # - 'datasets/nyu-depth-v2'
 
 # Wandb logging
 log_wandb: True # Set to True to log to Weights & Biases
@@ -32,7 +33,7 @@ gpus:
   - 2
   - 1
 num_workers: 4
-devices: [1,2,3]
-check_val_every_n_epoch: 10
+devices: [0]
+check_val_every_n_epoch: 2
 weight_decay: 0.8
 clip_grad: 1.0
