@@ -299,13 +299,13 @@ class DataPL(pl.LightningDataModule):
             args.input_size,
             args.data_path,
             split="train",
-            max_samples=100,  # remove this
+            # max_samples=100,  # remove this
         )
         self.dev_dataset = MDataset(
             args.input_size,
             args.data_path,
             split="validation",
-            max_samples=100,  # remove this
+            # max_samples=100,  # remove this
         )
 
         print("TrainDataset", len(self.train_dataset))
