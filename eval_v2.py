@@ -21,11 +21,15 @@ import matplotlib.pyplot as plt
 def main(args: PretrainArgparser):
     data_pl = DataPL(args)
     model_pl = ModelPL.load_from_checkpoint(
-        os.path.join(args.output_dir, "artifacts.ckpt"), args=args
+        os.path.join(args.output_dir, "artifacts.ckpt"),
+        args=args,
+        map_location=None,
     )
     n_row = 10
     n_col = 6
     f, axarr = plt.subplots(n_row, n_col, figsize=(12, 44))
+
+    model_pl.to(f"cuda:{args.devices[0]}")
 
     for i, (image, depth) in enumerate(data_pl.test_dataset):
         masked_rgb, pred_rgb, rgb, masked_depth, pred_depth, depth = inference(
