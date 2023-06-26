@@ -73,7 +73,7 @@ class PretrainArgparser(Tap):
     train_interpolation: Optional[str] = "bicubic"  # (random, bilinear, bicubic)
 
     # Dataset parameters
-    data_path: Optional[str] = ''  # <------------
+    data_path: Optional[str] = ""  # <------------
     data_paths: Optional[List[str]] = []
     imagenet_default_mean_and_std: Optional[bool] = True
 
@@ -130,6 +130,8 @@ class PretrainArgparser(Tap):
     num_training_samples_per_epoch: Optional[int] = 0
     check_val_every_n_epoch: Optional[int] = 10
 
+    _total_iters_per_epoch: Optional[int] = None
+
     def todict(self):
         d = dict()
         for k, v in self.__dict__.items():
@@ -139,10 +141,17 @@ class PretrainArgparser(Tap):
 
     @property
     def total_iters_per_epoch(self):
-        return math.ceil(
-            (self.num_training_samples_per_epoch)
-            / (self.batch_size * len(self.devices))
-        )
+        if self._total_iters_per_epoch is None:
+            return math.ceil(
+                (self.num_training_samples_per_epoch)
+                / (self.batch_size * len(self.devices))
+            )
+        else:
+            return self._total_iters_per_epoch
+
+    @total_iters_per_epoch.setter
+    def total_iters_per_epoch(self, v: int):
+        self._total_iters_per_epoch = v
 
 
 def get_args() -> PretrainArgparser:
