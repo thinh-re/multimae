@@ -39,6 +39,18 @@
                 "--config",
                 "cfgs/pretrain/v2.0.0-pr.yaml"
             ]
+        },
+        {
+            "name": "Eval",
+            "type": "python",
+            "request": "launch",
+            "program": "eval_v2.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--config",
+                "cfgs/pretrain/v2.0.0-pr.yaml"
+            ]
         }
     ]
 }

@@ -2,9 +2,10 @@ from pytorch_lightning.loggers import WandbLogger
 
 from logging import Logger
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import json
+from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 import torch
 from torch import Tensor
 import os
@@ -97,6 +98,26 @@ class ModelPL(pl.LightningModule):
             checkpoint = torch.load(self.args.pretrained_weights)
             self.model.load_state_dict(checkpoint["model"], strict=False)
             print("Load pretrained weights from", self.args.pretrained_weights)
+
+    def forward(
+        self,
+        x: Union[Dict[str, torch.Tensor], torch.Tensor],
+        mask_inputs: bool = True,
+        task_masks: Dict[str, torch.Tensor] = None,
+        num_encoded_tokens: int = 128,
+        alphas: Union[float, List[float]] = 1.0,
+        sample_tasks_uniformly: bool = False,
+        fp32_output_adapters: List[str] = [],
+    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+        return self.model.forward(
+            x,
+            mask_inputs,
+            task_masks,
+            num_encoded_tokens,
+            alphas,
+            sample_tasks_uniformly,
+            fp32_output_adapters,
+        )
 
     def forward_loss(
         self, images: Tensor, depths: Tensor
@@ -307,9 +328,16 @@ class DataPL(pl.LightningDataModule):
             split="validation",
             # max_samples=100,  # remove this
         )
+        self.test_dataset = MDataset(
+            args.input_size,
+            args.data_path,
+            split="test",
+            # max_samples=100,  # remove this
+        )
 
         print("TrainDataset", len(self.train_dataset))
         print("DevDataset", len(self.dev_dataset))
+        print("TestDataset", len(self.test_dataset))
 
         args.num_training_samples_per_epoch = len(self.train_dataset)
 
@@ -332,6 +360,21 @@ class DataPL(pl.LightningDataModule):
         ]
 
     def val_dataloader(self):
+        return [
+            DataLoader(
+                self.dev_dataset,
+                batch_size=self.args.batch_size,
+                num_workers=self.args.num_workers,
+                # If ``True``, the data loader will copy Tensors
+                # into device/CUDA pinned memory before returning them
+                pin_memory=True,
+                worker_init_fn=self.seed_worker,
+                generator=self.g,
+                shuffle=False,
+            )
+        ]
+
+    def test_dataloader(self):
         return [
             DataLoader(
                 self.dev_dataset,

@@ -1,6 +1,8 @@
+from torchvision.transforms import ToPILImage
 import time
 from typing import Dict, Optional, Tuple
 
+from PIL import Image
 import cv2
 import numpy as np
 import torch
@@ -98,12 +100,22 @@ def to_cv_image(img: Tensor) -> np.ndarray:
     return img
 
 
+toPILImage = ToPILImage()
+
+
 def generate_predictions(
     input_dict: Dict[str, Tensor],
     preds: Dict[str, Tensor],
     masks: Dict[str, Tensor],
     image_size=224,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[
+    Image.Image,
+    Image.Image,
+    Image.Image,
+    Image.Image,
+    Image.Image,
+    Image.Image,
+]:
     masked_rgb = (
         get_masked_image(
             denormalize(input_dict["rgb"]),
@@ -111,7 +123,6 @@ def generate_predictions(
             image_size=image_size,
             mask_value=1.0,
         )[0]
-        .permute(1, 2, 0)
         .detach()
         .cpu()
     )
@@ -133,7 +144,6 @@ def generate_predictions(
             masks["rgb"],
             image_size=image_size,
         )[0]
-        .permute(1, 2, 0)
         .detach()
         .cpu()
     )
@@ -146,12 +156,12 @@ def generate_predictions(
     )
 
     return (
-        to_cv_image(masked_rgb),
-        to_cv_image(pred_rgb),
-        to_cv_image(denormalize(input_dict["rgb"])[0].permute(1, 2, 0).detach().cpu()),
-        to_cv_image(masked_depth),
-        to_cv_image(pred_depth),
-        to_cv_image(input_dict["depth"].squeeze().detach().cpu()),
+        toPILImage(masked_rgb),
+        toPILImage(pred_rgb),
+        toPILImage(denormalize(input_dict["rgb"])[0].detach().cpu()),
+        toPILImage(masked_depth),
+        toPILImage(pred_depth),
+        toPILImage(input_dict["depth"].squeeze().detach().cpu()),
     )
 
 
@@ -219,44 +229,29 @@ def log_inference(
 
 
 def inference(
-    model: MultiMAE,
+    model: nn.Module,
     input_dict: Dict[str, Tensor],
     num_tokens: int,
-    manual_mode: bool,
     num_rgb: int,
     num_depth: int,
-    seed: int,
 ):
     num_tokens = int(588 * num_tokens / 100.0)
     num_rgb = int(196 * num_rgb / 100.0)
     num_depth = int(196 * num_depth / 100.0)
 
     # To GPU
-    input_dict = {k: v.unsqueeze(0).to(device) for k, v in input_dict.items()}
-    if not manual_mode:
-        # Randomly sample masks
-        torch.manual_seed(int(time.time()))  # Random mode is random
-        preds, masks = model.forward(
-            input_dict,
-            mask_inputs=True,  # True if forward pass should sample random masks
-            num_encoded_tokens=num_tokens,
-            alphas=1.0,
-        )
-    else:
-        # Randomly sample masks using the specified number of tokens per modality
-        torch.manual_seed(int(seed))  # change seed to resample new mask
-        task_masks = {
-            domain: torch.ones(1, 196).long().to(device) for domain in DOMAINS
-        }
-        selected_rgb_idxs = torch.randperm(196)[:num_rgb]
-        selected_depth_idxs = torch.randperm(196)[:num_depth]
-        task_masks["rgb"][:, selected_rgb_idxs] = 0
-        task_masks["depth"][:, selected_depth_idxs] = 0
+    input_dict = {k: v.unsqueeze(0).to(model.device) for k, v in input_dict.items()}
+    # Randomly sample masks
+    torch.manual_seed(int(time.time()))  # Random mode is random
+    preds, masks = model.forward(
+        input_dict,
+        mask_inputs=True,  # True if forward pass should sample random masks
+        num_encoded_tokens=num_tokens,
+        alphas=1.0,
+    )
 
-        preds, masks = model.forward(
-            input_dict, mask_inputs=True, task_masks=task_masks
-        )
-
+    preds: Dict[str, Tensor]
+    masks: Dict[str, Tensor]
     preds = {domain: pred.detach().cpu() for domain, pred in preds.items()}
     masks = {domain: mask.detach().cpu() for domain, mask in masks.items()}
 

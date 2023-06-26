@@ -1,38 +1,16 @@
 from collections import OrderedDict
-from pytorch_lightning.loggers import WandbLogger
 
-from logging import Logger
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
-import json
 import torch
 from torch import Tensor
 import os
 
-import pytorch_lightning as pl
-from torch.optim.lr_scheduler import LambdaLR
-from torch.optim import AdamW, Optimizer
-from data_augmentation import DataAugmentationV6
-from mae_not_pretrained_keys import MAE_NOT_PRETRAINED_KEYS
 from multimae.criterion import MaskedMSELoss
-from torch.utils.data import DataLoader
-from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from pytorch_lightning.plugins import CheckpointIO
-from lightning_fabric.utilities.types import _PATH
-from torch.utils.data import Dataset
-from PIL import Image
 
-import shutil
-import numpy as np
-import random
-import yaml
-from multimae import MultiMAE
-from domain_conf import DOMAIN_CONF, get_model
+from domain_conf import DOMAIN_CONF
 from pretrain_argparser import PretrainArgparser, get_args
 from run_pretraining_multimae_v2 import DataPL, ModelPL
-from utils.lr import LinearLRRestart
 
 
 def main(args: PretrainArgparser):

@@ -7,7 +7,7 @@ is_wd_schedule: False
 # warmup_lr: 0.000001 # 1e-6
 # min_lr: 0.
 # warmup_epochs: 10
-batch_size: 312 # 312 # 136 # 256 <---------------------
+batch_size: 10 # 312
 save_ckpt_freq: 3
 
 # Data
