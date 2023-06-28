@@ -13,7 +13,7 @@ WANDB_MODE=offline WANDB_CACHE_DIR=wandb_cache torchrun --nproc_per_node=1 run_p
 
 ## Train v2
 ```bash
-WANDB_MODE=offline WANDB_CACHE_DIR=wandb_cache python run_pretraining_multimae_v2.py --config cfgs/pretrain/v2.0.0-pr.yaml 
+WANDB_MODE=offline WANDB_CACHE_DIR=wandb_cache python run_pretraining_multimae_v2.py --config cfgs/pretrain/v2.0.1-pr.yaml 
 ```
 
 ## Results

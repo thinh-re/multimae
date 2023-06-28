@@ -131,6 +131,9 @@ class PretrainArgparser(Tap):
     check_val_every_n_epoch: Optional[int] = 10
 
     _total_iters_per_epoch: Optional[int] = None
+    
+    # Pytorch Lightning
+    save_top_k: Optional[int] = 1
 
     def todict(self):
         d = dict()

@@ -190,9 +190,10 @@ class ModelPL(pl.LightningModule):
         # logging["lr"] = lrs[0]
         self.log_dict(logging, sync_dist=True, prog_bar=True)
 
-        opt.zero_grad()
-        # automatically applies scaling, etc...
-        self.manual_backward(loss)
+        if not torch.isnan(loss):
+            opt.zero_grad()
+            # automatically applies scaling, etc...
+            self.manual_backward(loss)
 
         if self.args.clip_grad is not None:
             self.clip_gradients(
@@ -290,8 +291,10 @@ class MDataset(Dataset):
         raw_data = load_json(os.path.join("datasets_metadata", f"{data_path}.json"))
         self.data: List[Dict[str, Any]] = raw_data[split]["samples"]
         for e in self.data:
-            e["rgb"] = os.path.join("datasets", e["rgb"])
-            e["depth"] = os.path.join("datasets", e["depth"])
+            if not e["rgb"].startswith("/"):
+                e["rgb"] = os.path.join("datasets", e["rgb"])
+            if not e["depth"].startswith("/"):
+                e["depth"] = os.path.join("datasets", e["depth"])
 
         self.data_augmentation = DataAugmentationV6(input_size)
 
@@ -302,6 +305,12 @@ class MDataset(Dataset):
         data = self.data[index]
         image = Image.open(data["rgb"]).convert("RGB")
         depth = Image.open(data["depth"]).convert("L")
+
+        # Fix mismatch depth and image size (inplace)
+        if depth.size != image.size:
+            depth = depth.resize(image.size)
+            depth.save(data["depth"])
+
         image, depth = self.data_augmentation.forward(
             image, depth, is_transform=self.split == "train"
         )
@@ -431,7 +440,7 @@ def main(args: PretrainArgparser):
         verbose=True,
         dirpath=args.output_dir,
         filename="artifacts",
-        save_top_k=1,
+        save_top_k=args.save_top_k,
         save_last=True,
         mode="min",
     )
@@ -441,12 +450,10 @@ def main(args: PretrainArgparser):
         # resume_from_checkpoint=config.get("resume_from_checkpoint_path", None),
         strategy="ddp_find_unused_parameters_true",
         accelerator="gpu",
-        # plugins=custom_ckpt,
         max_epochs=args.epochs,
         devices=args.devices,
         val_check_interval=1.0,
         check_val_every_n_epoch=args.check_val_every_n_epoch,
-        # gradient_clip_val=cfg.gradient_clip_val,
         precision=16,
         num_sanity_val_steps=0,
         logger=loggers,
