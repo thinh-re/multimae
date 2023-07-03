@@ -16,6 +16,12 @@ WANDB_MODE=offline WANDB_CACHE_DIR=wandb_cache torchrun --nproc_per_node=1 run_p
 WANDB_MODE=offline WANDB_CACHE_DIR=wandb_cache python run_pretraining_multimae_v2.py --config cfgs/pretrain/v2.0.1-pr.yaml 
 ```
 
+## Qualitative Evaluation
+
+```bash
+WANDB_MODE=offline WANDB_CACHE_DIR=wandb_cache python eval_v2.py --config cfgs/pretrain/v2.0.1-pr.yaml 
+```
+
 ## Results
 
 Kaggle Notebook: [Pretrain MultiMAE for RGB-D SOD](https://www.kaggle.com/code/thinhhuynh3108/pretrain-multimae-for-rgb-d-sod)

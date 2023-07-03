@@ -1,20 +1,11 @@
-from collections import OrderedDict
-
 from pathlib import Path
-import time
-from typing import Dict
-
-import torch
-from torch import Tensor
 import os
 from demo.app import inference
-
 from multimae.criterion import MaskedMSELoss
 
 from domain_conf import DOMAIN_CONF
 from pretrain_argparser import PretrainArgparser, get_args
 from run_pretraining_multimae_v2 import DataPL, ModelPL
-from torchvision.transforms import ToPILImage, ToTensor
 import matplotlib.pyplot as plt
 
 

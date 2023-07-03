@@ -194,6 +194,8 @@ class ModelPL(pl.LightningModule):
             opt.zero_grad()
             # automatically applies scaling, etc...
             self.manual_backward(loss)
+        else:
+            print("Encounter loss nan!")
 
         if self.args.clip_grad is not None:
             self.clip_gradients(

@@ -126,7 +126,7 @@ class PretrainArgparser(Tap):
 
     lr_scale: Optional[float] = 1.0
 
-    data_augmentation_version: Optional[int] = 1
+    data_augmentation_version: Optional[int] = 1 # deprecated
     num_training_samples_per_epoch: Optional[int] = 0
     check_val_every_n_epoch: Optional[int] = 10
 
