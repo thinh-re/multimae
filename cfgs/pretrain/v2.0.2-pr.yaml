@@ -1,0 +1,37 @@
+model: pretrain_multimae_large
+
+# Train
+epochs: 100
+blr: 1e-5 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
+elr: 1e-11
+lr_strategy_version: 2
+is_wd_schedule: False
+batch_size: 312 # 312
+save_ckpt_freq: 3
+
+# Data
+data_path: 'v1'
+
+# Wandb logging
+log_wandb: True # Set to True to log to Weights & Biases
+wandb_project: PretrainSMultiMAE
+output_dir: './output/pretrain' # Change directory if needed
+normalized_depth: True
+
+depth_range: 256
+depth_loss: "l1"
+pretrained_weights: 'pretrained_weights/pretrain_multimae_large.pth'
+pretrained_backbone: 'mae'
+lr_scale: 100
+data_augmentation_version: 1
+gpus:
+  - 3
+  - 2
+  - 1
+num_workers: 4
+devices: [1]
+check_val_every_n_epoch: 1
+weight_decay: 5e-2
+# clip_grad: 1.0
+
+save_top_k: 2
