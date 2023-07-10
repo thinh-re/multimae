@@ -6,7 +6,7 @@ blr: 1e-5 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
 elr: 1e-11
 lr_strategy_version: 2
 is_wd_schedule: False
-batch_size: 312 # 312
+batch_size: 256 # 312
 save_ckpt_freq: 3
 
 # Data
@@ -24,12 +24,9 @@ pretrained_weights: 'pretrained_weights/pretrain_multimae_large.pth'
 pretrained_backbone: 'mae'
 lr_scale: 100
 data_augmentation_version: 1
-gpus:
-  - 3
-  - 2
-  - 1
+
 num_workers: 4
-devices: [1]
+devices: [3]
 check_val_every_n_epoch: 1
 weight_decay: 5e-2
 # clip_grad: 1.0

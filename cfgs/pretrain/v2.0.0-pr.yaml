@@ -22,10 +22,6 @@ pretrained_weights: 'pretrained_weights/mae-b_dec512d8b_1600e_multivit-c477195b.
 pretrained_backbone: 'mae'
 lr_scale: 1000
 data_augmentation_version: 1
-gpus:
-  - 3
-  - 2
-  - 1
 num_workers: 12
 devices: [2]
 check_val_every_n_epoch: 2
