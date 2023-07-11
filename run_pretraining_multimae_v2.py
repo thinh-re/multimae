@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import json
-from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 import torch
 from torch import Tensor
 import os
@@ -204,7 +203,8 @@ class ModelPL(pl.LightningModule):
                 gradient_clip_algorithm="norm",
             )
 
-        opt.step()
+        if not torch.isnan(loss):
+            opt.step()
         lr.step()
         return loss
 
@@ -281,6 +281,7 @@ def load_json(json_path: str) -> Dict:
 class MDataset(Dataset):
     def __init__(
         self,
+        args: PretrainArgparser,
         input_size: int,
         data_path: str,
         split: str = "train",
@@ -289,6 +290,7 @@ class MDataset(Dataset):
         self.data_path = data_path
         self.split = split
         self.max_samples = max_samples
+        self.args = args
 
         raw_data = load_json(os.path.join("datasets_metadata", f"{data_path}.json"))
         self.data: List[Dict[str, Any]] = raw_data[split]["samples"]
@@ -298,7 +300,7 @@ class MDataset(Dataset):
             if not e["depth"].startswith("/"):
                 e["depth"] = os.path.join("datasets", e["depth"])
 
-        self.data_augmentation = DataAugmentationV6(input_size)
+        self.data_augmentation = DataAugmentationV6(args, input_size)
 
         if self.max_samples is not None:
             self.data = self.data[: self.max_samples]
@@ -328,18 +330,21 @@ class DataPL(pl.LightningDataModule):
         self.args = args
 
         self.train_dataset = MDataset(
+            args,
             args.input_size,
             args.data_path,
             split="train",
             # max_samples=100,  # remove this
         )
         self.dev_dataset = MDataset(
+            args,
             args.input_size,
             args.data_path,
             split="validation",
             # max_samples=100,  # remove this
         )
         self.test_dataset = MDataset(
+            args,
             args.input_size,
             args.data_path,
             split="test",
@@ -408,11 +413,15 @@ class DataPL(pl.LightningDataModule):
 
 
 def main(args: PretrainArgparser):
-    shutil.rmtree(args.output_dir, ignore_errors=True)
-    os.makedirs(args.output_dir)
+    ckpt_path = os.path.join(args.output_dir, "last.ckpt")
+    if not os.path.isfile(ckpt_path):
+        shutil.rmtree(args.output_dir, ignore_errors=True)
+        os.makedirs(args.output_dir)
 
-    with open(os.path.join(args.output_dir, "config.yaml"), "w") as file:
-        yaml.dump(args.todict(), file)
+        with open(os.path.join(args.output_dir, "config.yaml"), "w") as file:
+            yaml.dump(args.todict(), file)
+
+        ckpt_path = None
 
     data_pl = DataPL(args)
     model_pl = ModelPL(args)
@@ -450,7 +459,7 @@ def main(args: PretrainArgparser):
     # custom_ckpt = CustomCheckpointIO()
     trainer = pl.Trainer(
         # resume_from_checkpoint=config.get("resume_from_checkpoint_path", None),
-        strategy="ddp_find_unused_parameters_true",
+        strategy="ddp",
         accelerator="gpu",
         max_epochs=args.epochs,
         devices=args.devices,
@@ -460,9 +469,16 @@ def main(args: PretrainArgparser):
         num_sanity_val_steps=0,
         logger=loggers,
         callbacks=[lr_callback, checkpoint_callback],
+        benchmark=True,
+        accumulate_grad_batches=1,
+        sync_batchnorm=True,
     )
 
-    trainer.fit(model_pl, data_pl)
+    trainer.fit(
+        model_pl,
+        data_pl,
+        ckpt_path=ckpt_path,
+    )
 
 
 if __name__ == "__main__":

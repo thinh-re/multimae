@@ -1,19 +1,18 @@
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 import torch
-from torch import nn, Tensor
-from torch.nn import Module
+from torch import Tensor
 from torchvision import transforms
 import albumentations as A
 from PIL import Image
 import numpy as np
 
-import cv2
 from pretrain_argparser import PretrainArgparser
 
 
 class DataAugmentationV6(torch.nn.Module):
     def __init__(
         self,
+        args: PretrainArgparser,
         image_size: int,
         is_padding=True,
     ):
@@ -24,25 +23,46 @@ class DataAugmentationV6(torch.nn.Module):
         self.to_tensor = transforms.ToTensor()
 
         # For rgb+depth+gt
+        """
+        [
+            A.HorizontalFlip(p=0.5),
+            A.ShiftScaleRotate(
+                shift_limit=0.0625,
+                scale_limit=0.1,
+                rotate_limit=45,
+                p=0.2,
+                # border_mode=cv2.BORDER_CONSTANT,
+                # value=(255, 255, 255),
+                # mask_value=0,
+            ),
+            A.Perspective(
+                p=0.5,
+                scale=(0.05, 0.1),
+                # pad_mode=cv2.BORDER_CONSTANT,
+                # pad_val=(255, 255, 255),
+                # mask_pad_val=0,
+            ),
+        ],
+        """
         self.transform1 = A.Compose(
-            [
+           [
                 A.HorizontalFlip(p=0.5),
                 A.ShiftScaleRotate(
                     shift_limit=0.0625,
                     scale_limit=0.1,
                     rotate_limit=45,
-                    p=0.2,
+                    p=0.1,
                     # border_mode=cv2.BORDER_CONSTANT,
                     # value=(255, 255, 255),
                     # mask_value=0,
                 ),
-                A.Perspective(
-                    p=0.5,
-                    scale=(0.05, 0.1),
-                    # pad_mode=cv2.BORDER_CONSTANT,
-                    # pad_val=(255, 255, 255),
-                    # mask_pad_val=0,
-                ),
+                # A.Perspective(
+                #     p=0.5,
+                #     scale=(0.05, 0.1),
+                #     # pad_mode=cv2.BORDER_CONSTANT,
+                #     # pad_val=(255, 255, 255),
+                #     # mask_pad_val=0,
+                # ),
             ],
             additional_targets={"depth": "image", "gt": "mask"},
         )
@@ -50,9 +70,9 @@ class DataAugmentationV6(torch.nn.Module):
         # For rgb only
         self.transform2 = A.Compose(
             [
-                A.GaussianBlur(p=0.5, blur_limit=(3, 19)),
-                A.RandomBrightnessContrast(p=0.5),
-                A.ColorJitter(p=0.5),
+                A.GaussianBlur(p=0.1, blur_limit=(3, 19)),
+                A.RandomBrightnessContrast(p=0.1),
+                A.ColorJitter(p=0.1),
             ]
         )
 

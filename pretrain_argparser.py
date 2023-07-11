@@ -14,9 +14,6 @@ class PretrainArgparser(Tap):
 
     batch_size: Optional[int] = 256
     epochs: Optional[int] = 1600
-    save_ckpt_freq: Optional[
-        int
-    ] = 20  # Checkpoint saving frequency in epochs (default: %(default)s)')
 
     # Task parameters
     in_domains: Optional[str] = ["rgb", "depth"]
@@ -45,6 +42,9 @@ class PretrainArgparser(Tap):
     decoder_num_heads: Optional[int] = 8
     drop_path: Optional[float] = 0.0
     loss_on_unmasked: Optional[bool] = False
+    embed_dim: Optional[int] = 6144
+    input_patch_size: Optional[int] = 16
+    output_patch_size: Optional[int] = 16
 
     # Optimizer parameters
     opt: Optional[str] = "adamw"
@@ -55,7 +55,6 @@ class PretrainArgparser(Tap):
         float
     ] = None  # Skip update if gradient norm larger than threshold
     momentum: Optional[float] = 0.9
-    is_wd_schedule: Optional[bool] = True
     weight_decay: Optional[float] = 0.05
     weight_decay_end: Optional[float] = None
     decoder_decay: Optional[float] = None
@@ -126,12 +125,12 @@ class PretrainArgparser(Tap):
 
     lr_scale: Optional[float] = 1.0
 
-    data_augmentation_version: Optional[int] = 1 # deprecated
+    data_augmentation_version: Optional[int] = 1  # deprecated
     num_training_samples_per_epoch: Optional[int] = 0
     check_val_every_n_epoch: Optional[int] = 10
 
     _total_iters_per_epoch: Optional[int] = None
-    
+
     # Pytorch Lightning
     save_top_k: Optional[int] = 1
 

@@ -51,6 +51,18 @@
                 "--config",
                 "cfgs/pretrain/v2.0.0-pr.yaml"
             ]
+        },
+        {
+            "name": "Debug model",
+            "type": "python",
+            "request": "launch",
+            "program": "debug_model.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--config",
+                "cfgs/pretrain/v2.0.3-pr.yaml"
+            ]
         }
     ]
 }

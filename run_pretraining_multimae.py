@@ -660,6 +660,7 @@ def eval(
 
 
 if __name__ == "__main__":
+    raise Exception("Deprecated!!!!")
     opts = get_args()
     if opts.output_dir:
         Path(opts.output_dir).mkdir(parents=True, exist_ok=True)

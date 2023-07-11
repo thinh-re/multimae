@@ -35,7 +35,8 @@ def get_model(args: PretrainArgparser) -> MultiMAE:
     input_adapters = {
         domain: DOMAIN_CONF[domain]["input_adapter"](
             stride_level=DOMAIN_CONF[domain]["stride_level"],
-            patch_size_full=args.patch_size,
+            patch_size_full=args.input_patch_size,
+            image_size=args.input_size,
         )
         for domain in args.in_domains
     }
@@ -43,7 +44,9 @@ def get_model(args: PretrainArgparser) -> MultiMAE:
     output_adapters = {
         domain: DOMAIN_CONF[domain]["output_adapter"](
             stride_level=DOMAIN_CONF[domain]["stride_level"],
-            patch_size_full=args.patch_size,
+            patch_size_full=args.input_patch_size,
+            # preds_per_patch=args.output_patch_size,
+            # embed_dim=args.embed_dim,
             dim_tokens=args.decoder_dim,
             depth=args.decoder_depth,
             num_heads=args.decoder_num_heads,

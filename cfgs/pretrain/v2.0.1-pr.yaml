@@ -5,7 +5,6 @@ elr: 1e-11
 lr_strategy_version: 2
 is_wd_schedule: False
 batch_size: 312 # 312
-save_ckpt_freq: 3
 
 # Data
 data_path: 'v1'
