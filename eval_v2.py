@@ -9,18 +9,12 @@ from run_pretraining_multimae_v2 import DataPL, ModelPL
 import matplotlib.pyplot as plt
 
 
-def main(args: PretrainArgparser):
-    data_pl = DataPL(args)
-    model_pl = ModelPL.load_from_checkpoint(
-        os.path.join(args.output_dir, "artifacts.ckpt"),
-        args=args,
-        map_location=None,
-    )
-    n_row = 10
+def visualize(
+    model_pl: ModelPL, data_pl: DataPL, save_path: str, num_samples: int = 10
+):
+    n_row = num_samples
     n_col = 6
-    f, axarr = plt.subplots(n_row, n_col, figsize=(12, 44))
-
-    model_pl.to(f"cuda:{args.devices[0]}")
+    f, axarr = plt.subplots(n_row, n_col, figsize=(12, 3 * num_samples))
 
     for i, (image, depth) in enumerate(data_pl.test_dataset):
         masked_rgb, pred_rgb, rgb, masked_depth, pred_depth, depth = inference(
@@ -39,12 +33,22 @@ def main(args: PretrainArgparser):
         axarr[i, 3].imshow(depth)
         axarr[i, 4].imshow(masked_depth)
         axarr[i, 5].imshow(pred_depth)
-        if i >= 9:
+        if i >= num_samples - 1:
             break
 
+    plt.savefig(save_path)
+    plt.close()
+
+
+def main(args: PretrainArgparser):
+    data_pl = DataPL(args)
+    model_pl = ModelPL.load_from_checkpoint(
+        os.path.join(args.output_dir, "artifacts.ckpt"),
+        args=args,
+        map_location=None,
+    )
     os.makedirs(f"tmp", exist_ok=True)
-    plt.show()
-    plt.savefig(f"tmp/eval.png")
+    visualize(model_pl, data_pl, f"tmp/eval.png", num_samples=5)
 
 
 if __name__ == "__main__":

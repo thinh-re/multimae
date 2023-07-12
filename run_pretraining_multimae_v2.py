@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import time
 from pytorch_lightning.loggers import WandbLogger
 
 from logging import Logger
@@ -13,6 +15,7 @@ import pytorch_lightning as pl
 from torch.optim.lr_scheduler import LambdaLR
 from torch.optim import AdamW, Optimizer
 from data_augmentation import DataAugmentationV6
+from demo.app import generate_predictions
 from mae_not_pretrained_keys import MAE_NOT_PRETRAINED_KEYS
 from multimae.criterion import MaskedMSELoss
 from torch.utils.data import DataLoader
@@ -208,6 +211,35 @@ class ModelPL(pl.LightningModule):
         lr.step()
         return loss
 
+    def inference(
+        self,
+        input_dict: Dict[str, Tensor],
+        num_tokens: int,
+        num_rgb: int,
+        num_depth: int,
+    ):
+        num_tokens = int(588 * num_tokens / 100.0)
+        num_rgb = int(196 * num_rgb / 100.0)
+        num_depth = int(196 * num_depth / 100.0)
+
+        # To GPU
+        input_dict = {k: v.unsqueeze(0).to(self.device) for k, v in input_dict.items()}
+        # Randomly sample masks
+        torch.manual_seed(int(time.time()))  # Random mode is random
+        preds, masks = self.forward(
+            input_dict,
+            mask_inputs=True,  # True if forward pass should sample random masks
+            num_encoded_tokens=num_tokens,
+            alphas=1.0,
+        )
+
+        preds: Dict[str, Tensor]
+        masks: Dict[str, Tensor]
+        preds = {domain: pred.detach().cpu() for domain, pred in preds.items()}
+        masks = {domain: mask.detach().cpu() for domain, mask in masks.items()}
+
+        return generate_predictions(input_dict, preds, masks)
+
     def validation_step(self, batch: Tuple[Tensor, Tensor, Tensor, Any], batch_idx):
         images, depths = batch
         loss, task_losses = self.forward_loss(images, depths)
@@ -218,10 +250,44 @@ class ModelPL(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         rs = np.sum(self.validation_step_outputs) / np.sum(self.num_dev_samples)
-        print("dev_mae", rs)
         self.log_dict({"dev_mae": rs}, sync_dist=True)
         self.validation_step_outputs.clear()  # free memory
         self.num_dev_samples.clear()
+
+        os.makedirs(os.path.join(self.args.output_dir, "visualization"), exist_ok=True)
+        self.visualize(
+            os.path.join(
+                self.args.output_dir, "visualization", f"e{self.current_epoch}.png"
+            )
+        )
+
+    def visualize(self, save_path: str, num_samples: int = 10):
+        n_row = num_samples
+        n_col = 6
+        f, axarr = plt.subplots(n_row, n_col, figsize=(12, 3 * num_samples))
+        test_dataset = self.test_dataloader()[0].dataset
+
+        for i, (image, depth) in enumerate(test_dataset):
+            masked_rgb, pred_rgb, rgb, masked_depth, pred_depth, depth = self.inference(
+                {"rgb": image, "depth": depth},
+                num_tokens=15,
+                num_rgb=15,
+                num_depth=15,
+            )
+            # rgb_mae = l1loss(Tensor(rgb), Tensor(pred_rgb))
+            # depth_mae = l1loss(Tensor(depth), Tensor(pred_depth))
+            axarr[i, 0].imshow(rgb)
+            axarr[i, 1].imshow(masked_rgb)
+            axarr[i, 2].imshow(pred_rgb)
+
+            axarr[i, 3].imshow(depth)
+            axarr[i, 4].imshow(masked_depth)
+            axarr[i, 5].imshow(pred_depth)
+            if i >= num_samples - 1:
+                break
+
+        plt.savefig(save_path)
+        plt.close()
 
     def configure_optimizers(self) -> Any:
         optimizer = AdamW(self.parameters(), lr=self.args.blr)
@@ -461,7 +527,7 @@ def main(args: PretrainArgparser):
         # resume_from_checkpoint=config.get("resume_from_checkpoint_path", None),
         strategy="ddp",
         accelerator="gpu",
-        max_epochs=args.epochs,
+        max_epochs=15,  # args.epochs,
         devices=args.devices,
         val_check_interval=1.0,
         check_val_every_n_epoch=args.check_val_every_n_epoch,

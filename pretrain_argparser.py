@@ -173,7 +173,7 @@ def get_args() -> PretrainArgparser:
     args = parser.parse_args(remaining)
 
     args.version = args_config.config.split("/")[-1].split(".yaml")[0]
-    args.wandb_run_name = f"{args.version}_{int(time.time())}"
+    args.wandb_run_name = args.version  # f"{args.version}_{int(time.time())}"
     args.output_dir = os.path.join(
         args.output_dir,
         args.version,

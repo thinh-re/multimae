@@ -31,6 +31,6 @@ weight_decay: 5e-2
 save_top_k: 2
 
 input_size: 448
-embed_dim: 24576 # 6144 * 4
+# embed_dim: 24576 # 6144 * 4
 input_patch_size: 32
-output_patch_size: 64
+# output_patch_size: 32

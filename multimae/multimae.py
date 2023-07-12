@@ -28,6 +28,8 @@ from torch.distributions.dirichlet import Dirichlet
 from utils.registry import register_model
 
 from .multimae_utils import Block, trunc_normal_
+from .output_adapters import SpatialOutputAdapter
+from .input_adapters import PatchedInputAdapter
 
 __all__ = [
     "pretrain_multimae_base",
@@ -61,8 +63,8 @@ class MultiMAE(nn.Module):
 
     def __init__(
         self,
-        input_adapters: Dict[str, nn.Module],
-        output_adapters: Optional[Dict[str, nn.Module]],
+        input_adapters: Dict[str, PatchedInputAdapter],
+        output_adapters: Optional[Dict[str, SpatialOutputAdapter]],
         num_global_tokens: int = 1,
         dim_tokens: int = 768,
         depth: int = 12,
@@ -134,7 +136,7 @@ class MultiMAE(nn.Module):
                     w = m.weight.data
                     nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
 
-    def _init_weights(self, m):
+    def _init_weights(self, m: nn.Module) -> None:
         if isinstance(m, nn.Linear):
             nn.init.xavier_uniform_(m.weight)
             if isinstance(m, nn.Linear) and m.bias is not None:
@@ -143,8 +145,8 @@ class MultiMAE(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def get_num_layers(self):
-        return len(self.encoder)
+    # def get_num_layers(self):
+    #     return len(self.encoder)
 
     @torch.jit.ignore
     def no_weight_decay(self):
@@ -282,15 +284,21 @@ class MultiMAE(nn.Module):
 
         return task_masks
 
-    def generate_input_info(self, input_task_tokens, image_size):
+    def generate_input_info(
+        self, input_task_tokens: Dict[str, Tensor], image_size: Tuple[int, int]
+    ) -> Dict[str, Tensor]:
         input_info = OrderedDict()
         i = 0
         input_info["tasks"] = {}
         for domain, tensor in input_task_tokens.items():
-            num_tokens = tensor.shape[1]
+            num_tokens: Union[int, Tensor] = tensor.shape[1]
+
+            if type(num_tokens) == Tensor:
+                num_tokens = num_tokens.item()
+
             d = {
                 "num_tokens": num_tokens,
-                "has_2d_posemb": True,  # TODO: Modify when adding non-2D tasks
+                "has_2d_posemb": True,
                 "start_idx": i,
                 "end_idx": i + num_tokens,
             }
@@ -338,10 +346,6 @@ class MultiMAE(nn.Module):
         # We assume that at least one of rgb or semseg is given as input before masking
         if "rgb" in x:
             B, C, H, W = x["rgb"].shape
-        elif "semseg" in x:
-            B, H, W = x["semseg"].shape
-            H *= self.input_adapters["semseg"].stride_level
-            W *= self.input_adapters["semseg"].stride_level
         else:
             B, C, H, W = list(x.values())[
                 0

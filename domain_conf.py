@@ -1,9 +1,9 @@
-from multimae.criterion import MaskedCrossEntropyLoss, MaskedL1Loss, MaskedMSELoss
-from multimae.input_adapters import PatchedInputAdapter, SemSegInputAdapter
+from typing import Dict, Type
+from multimae.criterion import MaskedL1Loss, MaskedMSELoss
+from multimae.input_adapters import PatchedInputAdapter
 from multimae.output_adapters import SpatialOutputAdapter
 from functools import partial
-from utils.data_constants import COCO_SEMSEG_NUM_CLASSES
-from pretrain_argparser import PretrainArgparser, get_args
+from pretrain_argparser import PretrainArgparser
 from multimae import MultiMAE
 from utils.model_builder import create_model
 
@@ -32,14 +32,14 @@ def get_model(args: PretrainArgparser) -> MultiMAE:
         f"Creating model: {args.model} for inputs {args.in_domains} and outputs {args.out_domains}"
     )
 
-    input_adapters = {
-        domain: DOMAIN_CONF[domain]["input_adapter"](
+    input_adapters: Dict[str, PatchedInputAdapter] = {}
+    for domain in args.in_domains:
+        cls: Type[PatchedInputAdapter] = DOMAIN_CONF[domain]["input_adapter"]
+        input_adapters[domain] = cls(
             stride_level=DOMAIN_CONF[domain]["stride_level"],
             patch_size_full=args.input_patch_size,
             image_size=args.input_size,
         )
-        for domain in args.in_domains
-    }
 
     output_adapters = {
         domain: DOMAIN_CONF[domain]["output_adapter"](

@@ -7,8 +7,8 @@ args = get_args()
 model: MultiMAE = get_model(args)
 
 input_dict = dict(
-    image=torch.randn(1, 3, args.input_size, args.input_size),
-    depth=torch.randn(1, 3, args.input_size, args.input_size),
+    rgb=torch.randn(1, 3, args.input_size, args.input_size),
+    depth=torch.randn(1, 1, args.input_size, args.input_size),
 )
 p = model.forward(
     input_dict,
