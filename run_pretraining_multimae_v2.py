@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import matplotlib.pyplot as plt
 import time
 from pytorch_lightning.loggers import WandbLogger
@@ -97,8 +98,14 @@ class ModelPL(pl.LightningModule):
 
     def load_pretrained_weights(self):
         if self.args.pretrained_weights:
-            checkpoint = torch.load(self.args.pretrained_weights)
-            self.model.load_state_dict(checkpoint["model"], strict=False)
+            checkpoint: OrderedDict[str, Tensor] = torch.load(
+                self.args.pretrained_weights
+            )["model"]
+            if self.args.input_size != 224:
+                for k in list(checkpoint.keys()):
+                    if k.endswith(".pos_emb"):
+                        del checkpoint[k]
+            self.model.load_state_dict(checkpoint, strict=False)
             print("Load pretrained weights from", self.args.pretrained_weights)
 
     def forward(
@@ -527,7 +534,7 @@ def main(args: PretrainArgparser):
         # resume_from_checkpoint=config.get("resume_from_checkpoint_path", None),
         strategy="ddp",
         accelerator="gpu",
-        max_epochs=15,  # args.epochs,
+        max_epochs=args.max_epochs,  # args.epochs,
         devices=args.devices,
         val_check_interval=1.0,
         check_val_every_n_epoch=args.check_val_every_n_epoch,

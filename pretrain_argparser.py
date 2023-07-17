@@ -14,6 +14,7 @@ class PretrainArgparser(Tap):
 
     batch_size: Optional[int] = 256
     epochs: Optional[int] = 1600
+    max_epochs: Optional[int] = 100
 
     # Task parameters
     in_domains: Optional[str] = ["rgb", "depth"]
