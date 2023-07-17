@@ -3,7 +3,7 @@ epochs: 100
 blr: 1e-5 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
 elr: 1e-11
 lr_strategy_version: 2
-batch_size: 12 # 312
+batch_size: 112 # 312
 
 # Data
 data_path: 'v1'
@@ -25,7 +25,7 @@ epochs: 100
 max_epochs: 10
 
 num_workers: 4
-devices: [3]
+devices: [1]
 check_val_every_n_epoch: 1
 weight_decay: 5e-2
 # clip_grad: 1.0

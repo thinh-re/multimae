@@ -196,7 +196,7 @@ class ModelPL(pl.LightningModule):
         # Logging
         logging = {f"{task}_loss": l.item() for task, l in task_losses.items()}
         logging["loss"] = loss
-        # logging["lr"] = lrs[0]
+        logging["lr"] = lrs[0]
         self.log_dict(logging, sync_dist=True, prog_bar=True)
 
         if not torch.isnan(loss):
