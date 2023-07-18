@@ -46,6 +46,10 @@ class PretrainArgparser(Tap):
     embed_dim: Optional[int] = 6144
     input_patch_size: Optional[int] = 16
     output_patch_size: Optional[int] = 16
+    
+    max_train_samples: Optional[int] = None
+    max_dev_samples: Optional[int] = None
+    max_test_samples: Optional[int] = None
 
     # Optimizer parameters
     opt: Optional[str] = "adamw"

@@ -234,6 +234,7 @@ def inference(
     num_tokens: int,
     num_rgb: int,
     num_depth: int,
+    image_size: int,
 ):
     num_tokens = int(588 * num_tokens / 100.0)
     num_rgb = int(196 * num_rgb / 100.0)
@@ -255,4 +256,4 @@ def inference(
     preds = {domain: pred.detach().cpu() for domain, pred in preds.items()}
     masks = {domain: mask.detach().cpu() for domain, mask in masks.items()}
 
-    return generate_predictions(input_dict, preds, masks)
+    return generate_predictions(input_dict, preds, masks, image_size=image_size)

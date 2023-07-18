@@ -10,7 +10,11 @@ import matplotlib.pyplot as plt
 
 
 def visualize(
-    model_pl: ModelPL, data_pl: DataPL, save_path: str, num_samples: int = 10
+    model_pl: ModelPL,
+    data_pl: DataPL,
+    save_path: str,
+    num_samples: int = 10,
+    image_size: int = 224,
 ):
     n_row = num_samples
     n_col = 6
@@ -23,6 +27,7 @@ def visualize(
             num_tokens=15,
             num_rgb=15,
             num_depth=15,
+            image_size=image_size,
         )
         # rgb_mae = l1loss(Tensor(rgb), Tensor(pred_rgb))
         # depth_mae = l1loss(Tensor(depth), Tensor(pred_depth))
@@ -48,7 +53,9 @@ def main(args: PretrainArgparser):
         map_location=None,
     )
     os.makedirs(f"tmp", exist_ok=True)
-    visualize(model_pl, data_pl, f"tmp/eval.png", num_samples=5)
+    visualize(
+        model_pl, data_pl, f"tmp/eval.png", num_samples=5, image_size=args.input_size
+    )
 
 
 if __name__ == "__main__":

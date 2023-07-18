@@ -72,6 +72,14 @@ class ModelPL(pl.LightningModule):
         self.model: MultiMAE = get_model(args)
         self.load_pretrained_weights()
 
+        self.test_dataset = MDataset(
+            args,
+            args.input_size,
+            args.data_path,
+            split="test",
+            max_samples=args.max_test_samples,
+        )
+
         # Loss
         self.tasks_loss_fn = {
             domain: DOMAIN_CONF[domain]["loss"](
@@ -245,7 +253,9 @@ class ModelPL(pl.LightningModule):
         preds = {domain: pred.detach().cpu() for domain, pred in preds.items()}
         masks = {domain: mask.detach().cpu() for domain, mask in masks.items()}
 
-        return generate_predictions(input_dict, preds, masks)
+        return generate_predictions(
+            input_dict, preds, masks, image_size=self.args.input_size
+        )
 
     def validation_step(self, batch: Tuple[Tensor, Tensor, Tensor, Any], batch_idx):
         images, depths = batch
@@ -272,9 +282,8 @@ class ModelPL(pl.LightningModule):
         n_row = num_samples
         n_col = 6
         f, axarr = plt.subplots(n_row, n_col, figsize=(12, 3 * num_samples))
-        test_dataset = self.test_dataloader()[0].dataset
 
-        for i, (image, depth) in enumerate(test_dataset):
+        for i, (image, depth) in enumerate(self.test_dataset):
             masked_rgb, pred_rgb, rgb, masked_depth, pred_depth, depth = self.inference(
                 {"rgb": image, "depth": depth},
                 num_tokens=15,
@@ -407,21 +416,21 @@ class DataPL(pl.LightningDataModule):
             args.input_size,
             args.data_path,
             split="train",
-            # max_samples=100,  # remove this
+            max_samples=args.max_train_samples,
         )
         self.dev_dataset = MDataset(
             args,
             args.input_size,
             args.data_path,
             split="validation",
-            # max_samples=100,  # remove this
+            max_samples=args.max_dev_samples,
         )
         self.test_dataset = MDataset(
             args,
             args.input_size,
             args.data_path,
             split="test",
-            # max_samples=100,  # remove this
+            max_samples=args.max_test_samples,
         )
 
         print("TrainDataset", len(self.train_dataset))

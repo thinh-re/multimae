@@ -3,7 +3,7 @@ epochs: 100
 blr: 1e-5 # this is base_lr = 1e-4, lr = base_lr * batch_size / 256
 elr: 1e-11
 lr_strategy_version: 2
-batch_size: 112 # 312
+batch_size: 112
 
 # Data
 data_path: 'v1'
@@ -28,9 +28,13 @@ num_workers: 4
 devices: [1]
 check_val_every_n_epoch: 1
 weight_decay: 5e-2
-# clip_grad: 1.0
 
 save_top_k: 2
 
 input_size: 384
 input_patch_size: 16
+
+# Debug only
+# max_train_samples: 100
+# max_dev_samples: 100
+# max_test_samples: 100

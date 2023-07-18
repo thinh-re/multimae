@@ -25,7 +25,7 @@
             "justMyCode": true,
             "args": [
                 "--config",
-                "cfgs/pretrain/v2.0.1-pr.yaml"
+                "cfgs/pretrain/v2.0.3-pr.yaml"
             ]
         },
         {
