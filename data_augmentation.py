@@ -45,7 +45,7 @@ class DataAugmentationV6(torch.nn.Module):
         ],
         """
         self.transform1 = A.Compose(
-           [
+            [
                 A.HorizontalFlip(p=0.5),
                 A.ShiftScaleRotate(
                     shift_limit=0.0625,
@@ -77,7 +77,7 @@ class DataAugmentationV6(torch.nn.Module):
         )
 
         # For depth only
-        self.transform3 = A.Compose([A.GaussianBlur(p=0.5, blur_limit=(3, 37))])
+        self.transform3 = A.Compose([A.GaussianBlur(p=0.1, blur_limit=(3, 37))])
 
         # For rgb+depth+gt
         self.transform4 = A.Compose(

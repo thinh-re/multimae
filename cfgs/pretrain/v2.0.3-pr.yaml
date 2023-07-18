@@ -19,7 +19,6 @@ depth_loss: "l1"
 pretrained_weights: 'pretrained_weights/mae-b_dec512d8b_1600e_multivit-c477195b.pth'
 pretrained_backbone: 'mae'
 lr_scale: 100
-data_augmentation_version: 1
 
 epochs: 100
 max_epochs: 10

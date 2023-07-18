@@ -271,12 +271,12 @@ class ModelPL(pl.LightningModule):
         self.validation_step_outputs.clear()  # free memory
         self.num_dev_samples.clear()
 
-        os.makedirs(os.path.join(self.args.output_dir, "visualization"), exist_ok=True)
-        self.visualize(
-            os.path.join(
-                self.args.output_dir, "visualization", f"e{self.current_epoch}.png"
-            )
-        )
+        # os.makedirs(os.path.join(self.args.output_dir, "visualization"), exist_ok=True)
+        # self.visualize(
+        #     os.path.join(
+        #         self.args.output_dir, "visualization", f"e{self.current_epoch}.png"
+        #     )
+        # )
 
     def visualize(self, save_path: str, num_samples: int = 10):
         n_row = num_samples

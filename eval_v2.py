@@ -50,7 +50,7 @@ def main(args: PretrainArgparser):
     model_pl = ModelPL.load_from_checkpoint(
         os.path.join(args.output_dir, "artifacts.ckpt"),
         args=args,
-        map_location=None,
+        map_location="cpu",
     )
     os.makedirs(f"tmp", exist_ok=True)
     visualize(
