@@ -10,16 +10,12 @@ from multimae.criterion import MaskedMSELoss
 
 from domain_conf import DOMAIN_CONF
 from pretrain_argparser import PretrainArgparser, get_args
-from run_pretraining_multimae_v2 import DataPL, ModelPL
 
 
 def main(args: PretrainArgparser):
-    data_pl = DataPL(args)
-    model_pl = ModelPL(args)
-
     artifacts_path = os.path.join(args.output_dir, "artifacts.ckpt")
     print("Load artifacts from", artifacts_path)
-    artifacts = torch.load(artifacts_path)
+    artifacts = torch.load(artifacts_path, map_location="cpu")
 
     rs = OrderedDict()
     for k, v in artifacts["state_dict"].items():
@@ -42,8 +38,6 @@ def main(args: PretrainArgparser):
 
 if __name__ == "__main__":
     opts = get_args()
-    if opts.output_dir:
-        Path(opts.output_dir).mkdir(parents=True, exist_ok=True)
     if opts.depth_loss == "mse":
         DOMAIN_CONF["depth"]["loss"] = MaskedMSELoss
     main(opts)

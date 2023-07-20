@@ -564,9 +564,7 @@ def main(args: PretrainArgparser):
 
 
 if __name__ == "__main__":
-    opts = get_args()
-    if opts.output_dir:
-        Path(opts.output_dir).mkdir(parents=True, exist_ok=True)
-    if opts.depth_loss == "mse":
+    args = get_args()
+    if args.depth_loss == "mse":
         DOMAIN_CONF["depth"]["loss"] = MaskedMSELoss
-    main(opts)
+    main(args)
