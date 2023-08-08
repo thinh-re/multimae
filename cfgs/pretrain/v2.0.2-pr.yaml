@@ -8,7 +8,7 @@ lr_strategy_version: 2
 batch_size: 128 # 312
 
 # Data
-data_path: 'v1'
+data_path: 'v2' # 'v1'
 
 # Wandb logging
 log_wandb: True # Set to True to log to Weights & Biases

@@ -22,4 +22,5 @@ tmp
 datasets
 wandb_cache
 datasets_metadata/v1.json
+datasets_metadata/v2.json
 datasets_metadata/imagenet1k.json

@@ -16,6 +16,7 @@ def read_json(json_path: str) -> Dict:
 
 
 datasets = ["multimae-v1", "nyu-depth-v2", "imagenet1k"]
+# datasets = ["multimae-v1"]
 train_ratios = [9, 9, 9.8]
 dev_ratios = [0.5, 0.5, 0.1]
 test_ratios = [0.5, 0.5, 0.1]
