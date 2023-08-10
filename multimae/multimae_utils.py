@@ -221,7 +221,7 @@ class CrossAttention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x, context):
+    def forward(self, x: Tensor, context: Tensor):
         B, N, C = x.shape
         _, M, _ = context.shape
 
@@ -279,7 +279,7 @@ class Block(nn.Module):
             drop=drop,
         )
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = x + self.drop_path(self.attn(self.norm1(x)))
         x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x

@@ -24,7 +24,7 @@ class PretrainArgparser(Tap):
     model: Optional[str] = "pretrain_multimae_base"
     num_encoded_tokens: Optional[
         int
-    ] = 98  # Total would be 196 * 3 patches. 196 / 2 = 98
+    ] = 98  # Total would be 196 * 2 patches. 14 * 14 * 2 / 6 = 65
     num_global_tokens: Optional[int] = 1
     patch_size: Optional[int] = 16
     input_size: Optional[int] = 224

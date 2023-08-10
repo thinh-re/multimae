@@ -20,7 +20,7 @@ from functools import partial
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import torch
-import torch.nn as nn
+from torch import Tensor, nn
 import torch.nn.functional as F
 from einops import rearrange, repeat
 
@@ -228,7 +228,11 @@ class SpatialOutputAdapter(nn.Module):
         return context_embeddings
 
     def get_queries_and_context(
-        self, context_tokens, input_info, ids_keep, ids_restore
+        self,
+        context_tokens: Tensor,
+        input_info: Dict[str, Tensor],
+        ids_keep: Tensor,
+        ids_restore: Tensor,
     ):
         B = context_tokens.shape[0]
         H, W = input_info["image_size"]
@@ -311,10 +315,10 @@ class SpatialOutputAdapter(nn.Module):
 
     def forward(
         self,
-        encoder_tokens: torch.Tensor,
+        encoder_tokens: Tensor,
         input_info: Dict,
-        ids_keep: torch.Tensor,
-        ids_restore: torch.Tensor,
+        ids_keep: Tensor,
+        ids_restore: Tensor,
     ):
         """
         Forward pass taking output tokens from encoder and optionally a subset of them corresponding
@@ -436,7 +440,7 @@ class LinearOutputAdapter(nn.Module):
         self.num_classes = num_classes
         self.init(dim_tokens_enc=self.dim_tokens_enc)
 
-    def forward(self, encoder_tokens: torch.Tensor, **kwargs):
+    def forward(self, encoder_tokens: Tensor, **kwargs):
         if self.use_mean_pooling:
             x = encoder_tokens.mean(1)
         else:
@@ -520,7 +524,7 @@ class ConvNeXtAdapter(nn.Module):
         x = torch.cat(x, dim=-1)
         return x
 
-    def forward(self, encoder_tokens: torch.Tensor, input_info: Dict):
+    def forward(self, encoder_tokens: Tensor, input_info: Dict[str, Tensor]):
         H, W = input_info["image_size"]
         N_H, N_W = H // self.patch_size, W // self.patch_size
 
@@ -733,7 +737,7 @@ class DPTOutputAdapter(nn.Module):
         x = torch.cat(x, dim=-1)
         return x
 
-    def forward(self, encoder_tokens: List[torch.Tensor], input_info: Dict):
+    def forward(self, encoder_tokens: List[Tensor], input_info: Dict):
         assert (
             self.dim_tokens_enc is not None
         ), "Need to call init(dim_tokens_enc) function first"

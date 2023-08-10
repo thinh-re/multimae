@@ -229,14 +229,14 @@ def log_inference(
 
 
 def inference(
-    model: nn.Module,
+    model: MultiMAE,
     input_dict: Dict[str, Tensor],
     num_tokens: int,
     num_rgb: int,
     num_depth: int,
     image_size: int,
 ):
-    num_tokens = int(588 * num_tokens / 100.0)
+    num_tokens = int(196 * 3 * num_tokens / 100.0)  # should 2
     num_rgb = int(196 * num_rgb / 100.0)
     num_depth = int(196 * num_depth / 100.0)
 
