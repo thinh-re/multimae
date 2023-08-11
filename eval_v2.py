@@ -29,7 +29,6 @@ def visualize(
     f, axarr = plt.subplots(n_row, n_col, figsize=(12, 3 * num_samples))
 
     indices = np.random.choice(len(data_pl.test_dataset), num_samples)
-    print(indices)
     for i, idx in enumerate(indices):
         image, depth = data_pl.test_dataset[idx]
         masked_rgb, pred_rgb, rgb, masked_depth, pred_depth, depth = inference(

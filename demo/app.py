@@ -236,7 +236,7 @@ def inference(
     num_depth: int,
     image_size: int,
 ):
-    num_tokens = int(196 * 3 * num_tokens / 100.0)  # should 2
+    num_tokens = int(196 * 2 * num_tokens / 100.0)  # should 2
     num_rgb = int(196 * num_rgb / 100.0)
     num_depth = int(196 * num_depth / 100.0)
 

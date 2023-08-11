@@ -15,17 +15,17 @@ torchrun --nproc_per_node=1 run_pretraining_multimae.py --config cfgs/pretrain/v
 
 ## Train v2
 ```bash
-PYTHONWARNINGS=ignore python run_pretraining_multimae_v2.py --config cfgs/pretrain/v2.0.3-pr.yaml 
+PYTHONWARNINGS=ignore python run_pretraining_multimae_v2.py --config cfgs/pretrain/v2.0.5-pr.yaml 
 ```
 
 ## Qualitative Evaluation
 
 ```bash
-python eval_v2.py --config cfgs/pretrain/v2.0.3-pr.yaml 
+python eval_v2.py --config cfgs/pretrain/v2.0.5-pr.yaml 
 ```
 
 ## Convert to S-MultiMAE
 
 ```bash
-python convert_to_s_multimae.py --config cfgs/pretrain/v2.0.3-pr.yaml 
+python convert_to_s_multimae.py --config cfgs/pretrain/v2.0.5-pr.yaml 
 ```

@@ -9,7 +9,7 @@ batch_size: 200 # 312
 num_encoded_tokens: 65
 
 # Data
-data_path: 'v1' # 'v1'
+data_path: 'v1'
 
 # Wandb logging
 log_wandb: True # Set to True to log to Weights & Biases
