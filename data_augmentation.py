@@ -47,15 +47,15 @@ class DataAugmentationV6(torch.nn.Module):
         self.transform1 = A.Compose(
             [
                 A.HorizontalFlip(p=0.5),
-                A.ShiftScaleRotate(
-                    shift_limit=0.0625,
-                    scale_limit=0.1,
-                    rotate_limit=45,
-                    p=0.1,
-                    # border_mode=cv2.BORDER_CONSTANT,
-                    # value=(255, 255, 255),
-                    # mask_value=0,
-                ),
+                # A.ShiftScaleRotate(
+                #     shift_limit=0.0625,
+                #     scale_limit=0.1,
+                #     rotate_limit=45,
+                #     p=0.1,
+                #     # border_mode=cv2.BORDER_CONSTANT,
+                #     # value=(255, 255, 255),
+                #     # mask_value=0,
+                # ),
                 # A.Perspective(
                 #     p=0.5,
                 #     scale=(0.05, 0.1),
