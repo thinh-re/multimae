@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Run pretrain v1.0.11",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "run_pretraining_multimae.py",
             "console": "integratedTerminal",
@@ -18,7 +18,7 @@
         },
         {
             "name": "Run pretrain v2",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "run_pretraining_multimae_v2.py",
             "console": "integratedTerminal",
@@ -30,7 +30,7 @@
         },
         {
             "name": "Convert to SMultimae",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "convert_to_s_multimae.py",
             "console": "integratedTerminal",
@@ -42,7 +42,7 @@
         },
         {
             "name": "Eval",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "eval_v2.py",
             "console": "integratedTerminal",
@@ -54,7 +54,7 @@
         },
         {
             "name": "Debug model",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "debug_model.py",
             "console": "integratedTerminal",
@@ -63,6 +63,14 @@
                 "--config",
                 "cfgs/pretrain/v2.0.3-pr.yaml"
             ]
+        },
+        {
+            "name": "test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
         }
     ]
 }
